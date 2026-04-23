@@ -8,6 +8,29 @@ It targets the GitHub Enterprise Cloud billing endpoint:
 
 Set the target enterprise with `--enterprise` or `COPREM_ENTERPRISE`.
 
+## Install
+
+Install the latest version with Go:
+
+```sh
+go install github.com/bariiss/coprem@latest
+```
+
+Install a specific release:
+
+```sh
+go install github.com/bariiss/coprem@v0.1.0
+```
+
+Make sure your Go binary directory is on `PATH`:
+
+```sh
+export PATH="$(go env GOPATH)/bin:$PATH"
+```
+
+You can also download prebuilt binaries from GitHub Releases. Release archives
+are published for macOS, Linux, and Windows on amd64 and arm64.
+
 ## Build
 
 ```sh

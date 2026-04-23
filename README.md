@@ -15,6 +15,25 @@ go build ./...
 go build -o coprem .
 ```
 
+## Release
+
+Releases are created from Git tags by GitHub Actions and GoReleaser.
+
+Create and push a semantic version tag:
+
+```sh
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+The release workflow builds archives for:
+
+- macOS amd64 and arm64
+- Linux amd64 and arm64
+- Windows amd64 and arm64
+
+Each release includes platform archives and `checksums.txt`.
+
 ## Quick start
 
 Run with explicit flags:

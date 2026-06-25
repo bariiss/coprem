@@ -129,3 +129,19 @@ func printNumberedUsers(out *os.File, users []string) {
 		fmt.Fprintf(out, "  %3d  %s\n", i+1, user)
 	}
 }
+
+func readUsersFile(path string) ([]string, error) {
+	content, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	var users []string
+	for _, line := range strings.Split(string(content), "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		users = append(users, splitUsers(line)...)
+	}
+	return users, nil
+}

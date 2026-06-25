@@ -86,6 +86,20 @@ func GroupReport(report Report, groupBy string, breakdown string) Report {
 		return report
 	}
 
+	// When grouping, determine whether to subdivide by date:
+	//   - If rows have timestamps (len > 10 = "YYYY-MM-DD" + time), this is a
+	//     cumulative query where each API call is a separate record — drop the
+	//     date so they aggregate into one row per key across the whole period.
+	//   - If rows have plain dates (len <= 10, already normalised by fetchDaily),
+	//     keep the date so daily + group-by produces one row per key per day.
+	dateIsRelevant := false
+	for _, row := range report.Rows {
+		if len(row.Date) <= 10 && row.Date != "" {
+			dateIsRelevant = true
+			break
+		}
+	}
+
 	grouped := map[string]Row{}
 	for _, row := range report.Rows {
 		key := keyFor(row, groupBy)
@@ -93,7 +107,12 @@ func GroupReport(report Report, groupBy string, breakdown string) Report {
 		if breakdown == "model" {
 			breakdownKey = valueOrUnknown(row.Model)
 		}
-		aggregateKey := strings.Join([]string{row.Date, key, breakdownKey}, "\x00")
+		parts := []string{}
+		if dateIsRelevant {
+			parts = append(parts, row.Date)
+		}
+		parts = append(parts, key, breakdownKey)
+		aggregateKey := strings.Join(parts, "\x00")
 		current := grouped[aggregateKey]
 		if current.Key == "" {
 			current = Row{

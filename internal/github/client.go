@@ -128,7 +128,7 @@ func NewClient(o ClientOptions) *Client {
 }
 
 func (c *Client) PremiumRequestUsage(ctx context.Context, enterprise string, query PremiumUsageQuery) (PremiumUsageResponse, error) {
-	path := fmt.Sprintf("/enterprises/%s/settings/billing/usage", url.PathEscape(enterprise))
+	path := fmt.Sprintf("/enterprises/%s/settings/billing/ai_credit/usage", url.PathEscape(enterprise))
 	values := url.Values{}
 	addInt(values, "year", query.Year)
 	addInt(values, "month", query.Month)

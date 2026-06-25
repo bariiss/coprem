@@ -47,14 +47,16 @@ var premiumCmd = &cobra.Command{
 	Use:   "premium",
 	Short: "Fetch Copilot premium request analytics",
 	Long: strings.TrimSpace(`
-Fetches GitHub Enterprise premium request usage from:
-GET /enterprises/{enterprise}/settings/billing/usage
+Fetches GitHub Enterprise AI credit usage from:
+GET /enterprises/{enterprise}/settings/billing/ai_credit/usage
 
 Examples:
   coprem premium --enterprise ENTERPRISE_SLUG
   coprem premium --timeframe last-month --group-by model
   coprem premium --year 2026 --month 4 --granularity daily --format csv
-  coprem premium --organization ORG_LOGIN --user octocat --model gpt-5
+  coprem premium --organization ORG_LOGIN --model gpt-5
+  coprem premium --user baris-dogu_MOKA
+  coprem premium --group-by user --users user1,user2 --breakdown model
 `),
 	RunE: runPremium,
 }
@@ -75,7 +77,7 @@ func init() {
 	premiumCmd.Flags().StringVar(&premiumOpts.Model, "model", "", "filter by model name")
 	premiumCmd.Flags().StringVar(&premiumOpts.Product, "product", "", "filter by product name")
 	premiumCmd.Flags().StringVar(&premiumOpts.CostCenterID, "cost-center-id", "", "filter by cost center id; use 'none' for unassigned")
-	premiumCmd.Flags().StringVar(&premiumOpts.GroupBy, "group-by", premiumOpts.GroupBy, "client-side grouping: none, model, user, product, organization, cost-center")
+	premiumCmd.Flags().StringVar(&premiumOpts.GroupBy, "group-by", premiumOpts.GroupBy, "client-side grouping: none, user, model, product, organization, cost-center")
 	premiumCmd.Flags().StringVar(&premiumOpts.Breakdown, "breakdown", premiumOpts.Breakdown, "secondary breakdown for grouped output: total or model")
 	premiumCmd.Flags().StringVar(&premiumOpts.Granularity, "granularity", premiumOpts.Granularity, "granularity: cumulative or daily")
 	premiumCmd.Flags().StringVar(&premiumOpts.SortBy, "sort-by", premiumOpts.SortBy, "table sort: net-amount, net-quantity, gross-amount, gross-quantity, key, date")
@@ -157,7 +159,7 @@ func runPremium(cmd *cobra.Command, args []string) error {
 }
 
 func validatePremiumOptions(o premiumOptions) error {
-	validGroupBy := map[string]bool{"none": true, "model": true, "user": true, "product": true, "organization": true, "cost-center": true}
+	validGroupBy := map[string]bool{"none": true, "user": true, "model": true, "product": true, "organization": true, "cost-center": true}
 	if !validGroupBy[o.GroupBy] {
 		return fmt.Errorf("unsupported group-by %q", o.GroupBy)
 	}
@@ -372,20 +374,14 @@ func resolveUsers(ctx context.Context, client *githubapi.Client, o premiumOption
 	return uniqueStrings(users), nil
 }
 
-func readUsersFile(path string) ([]string, error) {
-	content, err := os.ReadFile(path)
-	if err != nil {
-		return nil, err
+func premiumQuery(o premiumOptions) githubapi.PremiumUsageQuery {
+	return githubapi.PremiumUsageQuery{
+		Organization: o.Organization,
+		User:         o.User,
+		Model:        o.Model,
+		Product:      o.Product,
+		CostCenterID: o.CostCenterID,
 	}
-	var users []string
-	for _, line := range strings.Split(string(content), "\n") {
-		line = strings.TrimSpace(line)
-		if line == "" || strings.HasPrefix(line, "#") {
-			continue
-		}
-		users = append(users, splitUsers(line)...)
-	}
-	return users, nil
 }
 
 func splitUsers(value string) []string {
@@ -412,16 +408,6 @@ func uniqueStrings(values []string) []string {
 	}
 	sort.Strings(unique)
 	return unique
-}
-
-func premiumQuery(o premiumOptions) githubapi.PremiumUsageQuery {
-	return githubapi.PremiumUsageQuery{
-		Organization: o.Organization,
-		User:         o.User,
-		Model:        o.Model,
-		Product:      o.Product,
-		CostCenterID: o.CostCenterID,
-	}
 }
 
 func dateOnly(t time.Time) time.Time {

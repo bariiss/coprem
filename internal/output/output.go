@@ -289,6 +289,12 @@ func WriteTable(w io.Writer, report Report, options TableOptions) error {
 		}
 	}
 	_, err := fmt.Fprintln(w, c.dim(border))
+	if err != nil {
+		return err
+	}
+
+	// Legend footer
+	_, err = fmt.Fprintf(w, "%s\n", c.dim("GROSS $ = total cost before discount  ·  POOL $ = included credits coverage  ·  NET $ = additional usage billed"))
 	return err
 }
 

@@ -45,6 +45,8 @@ type Row struct {
 	DiscountAmount   float64 `json:"discountAmount"`
 	NetQuantity      float64 `json:"netQuantity"`
 	NetAmount        float64 `json:"netAmount"`
+	Budget           string  `json:"budget,omitempty"`       // formatted budget limit, e.g. "$50"
+	BudgetConsumed   string  `json:"budgetConsumed,omitempty"` // formatted consumed amount, e.g. "$50.00"
 }
 
 func RowsFromUsageItems(date string, items []githubapi.UsageItem, userFallback string) []Row {
@@ -314,6 +316,12 @@ func tableColumns(report Report) []tableColumn {
 		tableColumn{key: "grossAmount", label: "GROSS $"},
 		tableColumn{key: "netAmount", label: "NET $"},
 	)
+	if anyValue(report.Rows, func(row Row) string { return row.Budget }) {
+		columns = append(columns, tableColumn{key: "budget", label: "BUDGET"})
+	}
+	if anyValue(report.Rows, func(row Row) string { return row.BudgetConsumed }) {
+		columns = append(columns, tableColumn{key: "budgetConsumed", label: "USED"})
+	}
 	return columns
 }
 
@@ -347,6 +355,10 @@ func tableRow(row Row, columns []tableColumn) []string {
 			values = append(values, float(row.NetQuantity))
 		case "netAmount":
 			values = append(values, money(row.NetAmount))
+		case "budget":
+			values = append(values, emptyDash(row.Budget))
+		case "budgetConsumed":
+			values = append(values, emptyDash(row.BudgetConsumed))
 		default:
 			values = append(values, "")
 		}

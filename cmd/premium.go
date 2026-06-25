@@ -142,6 +142,11 @@ func runPremium(cmd *cobra.Command, args []string) error {
 	grouped := output.GroupReport(result, premiumOpts.GroupBy, premiumOpts.Breakdown)
 	output.SortRows(grouped.Rows, premiumOpts.SortBy)
 
+	// Attach budget info when grouping by user
+	if strings.HasPrefix(grouped.GroupBy, "user") {
+		mergeUserBudgets(ctx, client, &grouped)
+	}
+
 	switch opts.Format {
 	case "table":
 		color, err := output.ResolveColor(os.Stdout, opts.Color)
@@ -372,6 +377,29 @@ func resolveUsers(ctx context.Context, client *githubapi.Client, o premiumOption
 		users = append(users, discovered...)
 	}
 	return uniqueStrings(users), nil
+}
+
+func mergeUserBudgets(ctx context.Context, client *githubapi.Client, report *output.Report) {
+	budgets, err := client.ListBudgets(ctx, opts.Enterprise, githubapi.BudgetListQuery{
+		Scope:   githubapi.BudgetScopeUser,
+		PerPage: 100,
+	})
+	if err != nil || len(budgets) == 0 {
+		return
+	}
+	byUser := map[string]githubapi.Budget{}
+	for _, b := range budgets {
+		if b.User != "" {
+			byUser[b.User] = b
+		}
+	}
+	for i := range report.Rows {
+		login := report.Rows[i].Key
+		if b, ok := byUser[login]; ok {
+			report.Rows[i].Budget = fmt.Sprintf("$%d", b.BudgetAmount)
+			report.Rows[i].BudgetConsumed = fmt.Sprintf("$%.2f", b.ConsumedAmount)
+		}
+	}
 }
 
 func premiumQuery(o premiumOptions) githubapi.PremiumUsageQuery {

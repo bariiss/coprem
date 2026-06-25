@@ -2,9 +2,10 @@
 
 Go/Cobra CLI for GitHub Enterprise Copilot premium request analytics.
 
-It targets the GitHub Enterprise Cloud billing endpoint:
+It targets the GitHub Enterprise Cloud billing endpoints:
 
-`GET /enterprises/{enterprise}/settings/billing/premium_request/usage`
+- `GET /enterprises/{enterprise}/settings/billing/usage` — premium request usage
+- `GET/POST/PATCH/DELETE /enterprises/{enterprise}/settings/billing/budgets` — per-user AI credit budgets
 
 Set the target enterprise with `--enterprise` or `COPREM_ENTERPRISE`.
 
@@ -159,17 +160,16 @@ coprem premium --enterprise ENTERPRISE_SLUG --group-by user --users alice,bob
 coprem premium --enterprise ENTERPRISE_SLUG --group-by user --breakdown model --users alice,bob
 ```
 
-If the token cannot read enterprise Copilot seats, refresh the GitHub CLI token
-or pass a user list explicitly:
+If the token cannot read enterprise Copilot seats, switch to an enterprise admin
+account or refresh scopes:
 
 ```sh
-gh auth refresh -h github.com -u GITHUB_USER -s admin:enterprise
+gh auth switch
+gh auth refresh -h github.com -s admin:enterprise
 
-coprem premium \
-  --enterprise ENTERPRISE_SLUG \
-  --gh-user GITHUB_USER \
-  --group-by user \
-  --users alice,bob
+# or pin the enterprise admin account:
+export COPREM_GH_USER=enterprise-admin
+coprem budget set --all --amount 50 --yes
 ```
 
 Tables use color automatically on a terminal. Override with `--color always` or
@@ -192,6 +192,53 @@ coprem premium \
   --cost-center-id none \
   --format json
 ```
+
+## Per-user budgets
+
+GitHub Enterprise lets you set monthly AI credit budgets per user with a hard stop
+when the limit is reached. `coprem budget` wraps the budgets REST API.
+
+List Copilot seat users (the same pool you pick from in the GitHub UI):
+
+```sh
+coprem budget users --enterprise ENTERPRISE_SLUG --gh-user GITHUB_USER
+```
+
+List existing user budgets:
+
+```sh
+coprem budget list --enterprise ENTERPRISE_SLUG
+```
+
+By default, `budget list` shows every Copilot seat user. Users without a budget
+show `-` in the amount column. Use `--budgets-only` to list only defined budgets.
+
+Set a $50/month limit for one user:
+
+```sh
+coprem budget set --enterprise ENTERPRISE_SLUG --user example-user --amount 50
+```
+
+Set the same limit for all Copilot seat users:
+
+```sh
+coprem budget set --enterprise ENTERPRISE_SLUG --all --amount 50 --yes
+```
+
+Set the same limit for multiple users:
+
+```sh
+coprem budget set --enterprise ENTERPRISE_SLUG --users alice,bob --amount 30 --yes
+```
+
+Interactive picker (numbered user list + amount prompt):
+
+```sh
+coprem budget set --enterprise ENTERPRISE_SLUG --interactive
+```
+
+If a user already has an `ai_credits` budget, `set` updates it via PATCH instead
+of creating a duplicate.
 
 Use another enterprise or GitHub API host:
 

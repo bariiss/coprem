@@ -48,7 +48,7 @@ var premiumCmd = &cobra.Command{
 	Short: "Fetch Copilot premium request analytics",
 	Long: strings.TrimSpace(`
 Fetches GitHub Enterprise premium request usage from:
-GET /enterprises/{enterprise}/settings/billing/premium_request/usage
+GET /enterprises/{enterprise}/settings/billing/usage
 
 Examples:
   coprem premium --enterprise ENTERPRISE_SLUG
@@ -89,11 +89,13 @@ func runPremium(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	ghUser := resolveGHUser()
 	token, source, err := githubapi.ResolveToken(githubapi.TokenOptions{
 		PreferredEnv: opts.TokenEnv,
 		UseGH:        opts.UseGHToken,
-		GHUser:       opts.GHUser,
+		GHUser:       ghUser,
 		GHHostname:   opts.GHHostname,
+		PreferGH:     githubapi.ShouldPreferGHToken(opts.GHHostname, ghUser),
 	})
 	if err != nil {
 		return err
@@ -363,7 +365,7 @@ func resolveUsers(ctx context.Context, client *githubapi.Client, o premiumOption
 	if len(users) == 0 {
 		discovered, err := client.CopilotSeatLogins(ctx, opts.Enterprise)
 		if err != nil {
-			return nil, fmt.Errorf("discover Copilot seats for --group-by user: %w\nhint: refresh the GitHub CLI token with 'gh auth refresh -h %s -u %s -s admin:enterprise' or pass --users/--users-file", err, opts.GHHostname, opts.GHUser)
+			return nil, fmt.Errorf("discover Copilot seats for --group-by user: %w\n%s", err, githubapi.EnterpriseAuthHint(opts.GHHostname, resolveGHUser()))
 		}
 		users = append(users, discovered...)
 	}

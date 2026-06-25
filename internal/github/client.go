@@ -1,6 +1,7 @@
 package github
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -127,7 +128,7 @@ func NewClient(o ClientOptions) *Client {
 }
 
 func (c *Client) PremiumRequestUsage(ctx context.Context, enterprise string, query PremiumUsageQuery) (PremiumUsageResponse, error) {
-	path := fmt.Sprintf("/enterprises/%s/settings/billing/premium_request/usage", url.PathEscape(enterprise))
+	path := fmt.Sprintf("/enterprises/%s/settings/billing/usage", url.PathEscape(enterprise))
 	values := url.Values{}
 	addInt(values, "year", query.Year)
 	addInt(values, "month", query.Month)
@@ -179,6 +180,55 @@ func (c *Client) CopilotSeatLogins(ctx context.Context, enterprise string) ([]st
 func (c *Client) get(ctx context.Context, path string, query url.Values, out any) error {
 	_, err := c.getWithNext(ctx, path, query, out)
 	return err
+}
+
+func (c *Client) doJSON(ctx context.Context, method, path string, query url.Values, body any, out any) error {
+	endpoint := c.baseURL + path
+	if encoded := query.Encode(); encoded != "" {
+		endpoint += "?" + encoded
+	}
+
+	var bodyReader io.Reader
+	if body != nil {
+		encoded, err := json.Marshal(body)
+		if err != nil {
+			return err
+		}
+		bodyReader = bytes.NewReader(encoded)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, method, endpoint, bodyReader)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Accept", "application/vnd.github+json")
+	req.Header.Set("Authorization", "Bearer "+c.token)
+	req.Header.Set("User-Agent", c.userAgent)
+	req.Header.Set("Content-Type", "application/json")
+	if c.apiVersion != "" {
+		req.Header.Set("X-GitHub-Api-Version", c.apiVersion)
+	}
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+	if resp.StatusCode < 200 || resp.StatusCode > 299 {
+		return formatAPIError(resp.StatusCode, respBody)
+	}
+	if out == nil || len(strings.TrimSpace(string(respBody))) == 0 {
+		return nil
+	}
+	if err := json.Unmarshal(respBody, out); err != nil {
+		return fmt.Errorf("decode GitHub response: %w", err)
+	}
+	return nil
 }
 
 func (c *Client) getWithNext(ctx context.Context, path string, query url.Values, out any) (string, error) {

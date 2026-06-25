@@ -295,6 +295,10 @@ func WriteTable(w io.Writer, report Report, options TableOptions) error {
 
 	// Legend footer
 	_, err = fmt.Fprintf(w, "%s\n", c.dim("GROSS = total cost before discount  ·  POOL = included credits coverage  ·  NET = additional usage billed"))
+	if err != nil {
+		return err
+	}
+	_, err = fmt.Fprintf(w, "%s\n", c.dim("BUDGET = per-user AI credit limit  ·  USED = credits consumed from budget"))
 	return err
 }
 

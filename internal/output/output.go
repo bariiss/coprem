@@ -294,7 +294,7 @@ func WriteTable(w io.Writer, report Report, options TableOptions) error {
 	}
 
 	// Legend footer
-	_, err = fmt.Fprintf(w, "%s\n", c.dim("GROSS $ = total cost before discount  ·  POOL $ = included credits coverage  ·  NET $ = additional usage billed"))
+	_, err = fmt.Fprintf(w, "%s\n", c.dim("GROSS = total cost before discount  ·  POOL = included credits coverage  ·  NET = additional usage billed"))
 	return err
 }
 
@@ -319,9 +319,9 @@ func tableColumns(report Report) []tableColumn {
 		columns = append(columns, tableColumn{key: "org", label: "ORG"})
 	}
 	columns = append(columns,
-		tableColumn{key: "grossAmount", label: "GROSS $"},
-		tableColumn{key: "poolAmount", label: "POOL $"},
-		tableColumn{key: "netAmount", label: "NET $"},
+		tableColumn{key: "grossAmount", label: "GROSS"},
+		tableColumn{key: "poolAmount", label: "POOL"},
+		tableColumn{key: "netAmount", label: "NET"},
 	)
 	if anyValue(report.Rows, func(row Row) string { return row.Budget }) {
 		columns = append(columns, tableColumn{key: "budget", label: "BUDGET"})
@@ -453,7 +453,7 @@ func float(value float64) string {
 }
 
 func money(value float64) string {
-	return strconv.FormatFloat(value, 'f', 2, 64)
+	return "$" + strconv.FormatFloat(value, 'f', 2, 64)
 }
 
 func columnWidths(rows [][]string) []int {

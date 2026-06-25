@@ -314,6 +314,7 @@ func tableColumns(report Report) []tableColumn {
 	}
 	columns = append(columns,
 		tableColumn{key: "grossAmount", label: "GROSS $"},
+		tableColumn{key: "poolAmount", label: "POOL $"},
 		tableColumn{key: "netAmount", label: "NET $"},
 	)
 	if anyValue(report.Rows, func(row Row) string { return row.Budget }) {
@@ -351,6 +352,8 @@ func tableRow(row Row, columns []tableColumn) []string {
 			values = append(values, float(row.GrossQuantity))
 		case "grossAmount":
 			values = append(values, money(row.GrossAmount))
+		case "poolAmount":
+			values = append(values, money(row.DiscountAmount))
 		case "netQuantity":
 			values = append(values, float(row.NetQuantity))
 		case "netAmount":

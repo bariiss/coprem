@@ -311,9 +311,7 @@ func tableColumns(report Report) []tableColumn {
 		columns = append(columns, tableColumn{key: "org", label: "ORG"})
 	}
 	columns = append(columns,
-		tableColumn{key: "grossQuantity", label: "GROSS"},
 		tableColumn{key: "grossAmount", label: "GROSS $"},
-		tableColumn{key: "netQuantity", label: "NET"},
 		tableColumn{key: "netAmount", label: "NET $"},
 	)
 	return columns

@@ -293,13 +293,28 @@ func WriteTable(w io.Writer, report Report, options TableOptions) error {
 		return err
 	}
 
-	// Legend footer
-	_, err = fmt.Fprintf(w, "%s\n", c.dim("GROSS = total cost before discount  ·  POOL = included credits coverage  ·  NET = additional usage billed"))
-	if err != nil {
-		return err
+	// Legend footers — one row per legend line, aligned with table columns
+	legends := map[string]string{
+		"grossAmount":    "total cost before discount",
+		"poolAmount":     "included credits coverage",
+		"netAmount":      "additional usage billed",
+		"budget":         "per-user AI credit limit",
+		"budgetConsumed": "credits consumed from budget",
 	}
-	_, err = fmt.Fprintf(w, "%s\n", c.dim("BUDGET = per-user AI credit limit  ·  USED = credits consumed from budget"))
-	return err
+	for range []int{1, 2} {
+		footerRow := make([]string, len(columns))
+		for i, col := range columns {
+			if desc, ok := legends[col.key]; ok {
+				footerRow[i] = desc
+			} else {
+				footerRow[i] = ""
+			}
+		}
+		if err := writeTableRow(w, footerRow, widths, columns, false, c); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 type tableColumn struct {

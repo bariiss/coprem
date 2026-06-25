@@ -483,6 +483,8 @@ func writeTableRow(w io.Writer, row []string, widths []int, columns []tableColum
 			padded = c.cyan(padded)
 		} else if columns[i].key == "netAmount" {
 			padded = c.green(padded)
+		} else if columns[i].key == "budgetConsumed" && c.enabled {
+			padded = c.heatmap(value, row, columns, i)
 		}
 		values = append(values, " "+padded+" ")
 	}
@@ -512,3 +514,43 @@ func (c colors) bold(value string) string  { return c.wrap("1", value) }
 func (c colors) dim(value string) string   { return c.wrap("2", value) }
 func (c colors) cyan(value string) string  { return c.wrap("36", value) }
 func (c colors) green(value string) string { return c.wrap("32", value) }
+
+// heatmap colours USED values from green (low) through yellow to red (100%+).
+// It looks for the BUDGET column (expected just before budgetConsumed) to compute the ratio.
+func (c colors) heatmap(value string, row []string, columns []tableColumn, colIdx int) string {
+	if !c.enabled || value == "" || value == "-" {
+		return value
+	}
+	// Parse used value
+	used := 0.0
+	if _, err := fmt.Sscanf(value, "$%f", &used); err != nil {
+		return value
+	}
+	// Find the BUDGET column (should be at colIdx-1)
+	budgetVal := ""
+	if colIdx > 0 && columns[colIdx-1].key == "budget" {
+		budgetVal = row[colIdx-1]
+	}
+	limit := 0.0
+	if budgetVal != "" {
+		fmt.Sscanf(budgetVal, "$%f", &limit)
+	}
+	ratio := 0.0
+	if limit > 0 {
+		ratio = used / limit
+	}
+	// ratio → colour
+	// 0.0 = green (32), 0.5 = yellow (33), 1.0+ = red (31)
+	switch {
+	case ratio >= 1.0:
+		return c.wrap("1;31", value) // bold red
+	case ratio >= 0.75:
+		return c.wrap("1;33", value) // bold yellow
+	case ratio >= 0.5:
+		return c.wrap("33", value) // yellow
+	case ratio > 0:
+		return c.wrap("32", value) // green
+	default:
+		return c.wrap("2", value) // dim (zero used)
+	}
+}

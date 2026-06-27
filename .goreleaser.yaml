@@ -60,6 +60,16 @@ release:
     owner: bariiss
     name: coprem
 
+signs:
+  - cmd: cosign
+    signature: "${artifact}.sigstore.json"
+    args:
+      - "sign-blob"
+      - "--bundle=${signature}"
+      - "${artifact}"
+      - "--yes"
+    artifacts: checksum
+
 homebrew_casks:
   - name: coprem
     repository:

@@ -36,7 +36,7 @@ go install github.com/bariiss/coprem@latest
 Install a specific release:
 
 ```sh
-go install github.com/bariiss/coprem@v0.3.9
+go install github.com/bariiss/coprem@v0.3.12
 ```
 
 Make sure your Go binary directory is on `PATH`:

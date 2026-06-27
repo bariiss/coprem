@@ -15,6 +15,7 @@ Set the target enterprise with `--enterprise` or `COPREM_ENTERPRISE`.
 
 ```sh
 brew tap bariiss/coprem
+brew trust bariiss/coprem        # one-time: Homebrew 6.0+ requires explicit trust
 brew install --cask coprem
 ```
 

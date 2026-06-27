@@ -29,6 +29,12 @@ golangci-lint run              # lint (also runs as the pre-commit hook)
 CI (`.github/workflows/ci.yml`) runs `go test ./...`, `go build ./...`, `golangci-lint` **v2.12.2**, and a deep Semgrep scan (`p/owasp-top-ten`, `p/gosec`, `p/golang`, `p/security-audit`).
 The local pre-commit hook (`.git/hooks/pre-commit`) runs `go test ./...`, `golangci-lint run`, and the same deep Semgrep scan before letting any commit pass.
 Releases are tag-driven via GoReleaser (`.goreleaser.yaml`) — push a `vX.Y.Z` tag.
+GoReleaser builds darwin/linux/windows (amd64+arm64) archives, and the `homebrew_casks`
+section auto-publishes a cask to [`bariiss/homebrew-coprem`](https://github.com/bariiss/homebrew-coprem)
+(tracked as the `homebrew-tap` git submodule). The cask installs the pre-built binary
+and removes the macOS quarantine bit via a `postflight` hook (the binary is unsigned).
+Users install with `brew tap bariiss/coprem && brew trust bariiss/coprem && brew install --cask coprem`
+(the `brew trust` step is required since Homebrew 6.0+).
 
 ## Architecture
 

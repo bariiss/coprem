@@ -240,6 +240,23 @@ coprem budget set --enterprise ENTERPRISE_SLUG --interactive
 If a user already has an `ai_credits` budget, `set` updates it via PATCH instead
 of creating a duplicate.
 
+### Keyboard-driven TUI (budget manage)
+
+For a full-screen, keyboard-driven interface to manage budgets and monitor current-month usage (NET) per user, run:
+
+```sh
+coprem budget manage --enterprise ENTERPRISE_SLUG --gh-user GITHUB_USER
+```
+
+This launches an interactive Bubble Tea TUI where you can:
+
+- **Browse & Navigate**: Use `↑`/`↓` keys to move through the table rows.
+- **Filter**: Press `/` to search and filter users in real time.
+- **Edit Inline**: Select a user, press `Enter`, input a new budget limit, and press `y` to apply.
+- **Delete**: Press `d` to delete a user's budget with `[y/N]` confirmation.
+- **Toggle SKU**: Press `s` to switch between `ai_credits` and `premium_requests` product SKUs.
+- **Loading status**: Features a built-in async spinner during initial loading and after mutations while fetching budget updates and NET usage.
+
 Use another enterprise or GitHub API host:
 
 ```sh
@@ -249,3 +266,12 @@ coprem premium \
 ```
 
 For GHE.com dedicated subdomains, set `--api-base-url https://api.SUBDOMAIN.ghe.com`.
+
+## Architecture
+
+The project is structured into four layers, where dependencies flow downward only:
+
+- **`cmd/`** — Cobra command wiring and all CLI orchestration. Subcommands: `premium.go`, `budget.go` (+ `budget_manage.go`), `auth.go`.
+- **`internal/github/`** — HTTP client and all GitHub-specific API logic (Link-header pagination, token resolution, budget CRUD).
+- **`internal/output/`** — Pure reporting and renderers (`WriteTable` with heatmap coloring, `WriteJSON`, `WriteCSV`).
+- **`internal/tui/budgettui/`** — Bubble Tea TUI model and store interface for interactive budget management.

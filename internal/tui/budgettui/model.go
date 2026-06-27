@@ -3,6 +3,7 @@ package budgettui
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/table"
@@ -171,6 +172,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case modeFiltering:
 			nm, cmd := m.updateFiltering(msg)
 			return nm, cmd
+		case modeEditing:
+			nm, cmd := m.updateEditing(msg)
+			return nm, cmd
+		case modeConfirming:
+			nm, cmd := m.updateConfirming(msg)
+			return nm, cmd
 		case modeApplying:
 			return m, nil
 		default:
@@ -195,10 +202,75 @@ func (m Model) updateBrowsing(msg tea.KeyMsg) (Model, tea.Cmd) {
 		m.status = "loading…"
 		m.mode = modeApplying
 		return m, m.reloadCmd(m.sku)
+	case "enter":
+		r, ok := m.selected()
+		if !ok {
+			return m, nil
+		}
+		m.pendingUser = r.User
+		if r.HasBudget && r.Amount != nil {
+			m.input.SetValue(strconv.Itoa(*r.Amount))
+		} else {
+			m.input.SetValue("")
+		}
+		m.input.Focus()
+		m.status = ""
+		m.mode = modeEditing
+		return m, nil
+	case "d":
+		r, ok := m.selected()
+		if !ok || !r.HasBudget {
+			m.status = "no budget to delete"
+			return m, nil
+		}
+		m.pendingUser = r.User
+		m.pendingID = r.ID
+		m.confirm = confirmDelete
+		m.mode = modeConfirming
+		return m, nil
 	}
 	var cmd tea.Cmd
 	m.table, cmd = m.table.Update(msg)
 	return m, cmd
+}
+
+func (m Model) updateEditing(msg tea.KeyMsg) (Model, tea.Cmd) {
+	switch msg.Type {
+	case tea.KeyEsc:
+		m.input.Blur()
+		m.status = ""
+		m.mode = modeBrowsing
+		return m, nil
+	case tea.KeyEnter:
+		amount, err := parseAmount(m.input.Value())
+		if err != nil {
+			m.status = err.Error()
+			return m, nil // stay in editing
+		}
+		m.pendingAmount = amount
+		m.confirm = confirmSet
+		m.status = ""
+		m.mode = modeConfirming
+		return m, nil
+	}
+	var cmd tea.Cmd
+	m.input, cmd = m.input.Update(msg)
+	return m, cmd
+}
+
+func (m Model) updateConfirming(msg tea.KeyMsg) (Model, tea.Cmd) {
+	if msg.Type == tea.KeyRunes && strings.EqualFold(string(msg.Runes), "y") {
+		m.input.Blur()
+		m.mode = modeApplying
+		if m.confirm == confirmDelete {
+			return m, m.deleteCmd(m.pendingUser, m.pendingID)
+		}
+		return m, m.upsertCmd(m.pendingUser, m.pendingAmount, m.sku)
+	}
+	m.input.Blur()
+	m.status = "cancelled"
+	m.mode = modeBrowsing
+	return m, nil
 }
 
 func (m Model) updateFiltering(msg tea.KeyMsg) (Model, tea.Cmd) {

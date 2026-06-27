@@ -102,3 +102,130 @@ func TestSKUToggleTriggersReload(t *testing.T) {
 		t.Fatalf("rows after reload = %v, want [carol]", m.rows)
 	}
 }
+
+func TestEditConfirmApplyUpsert(t *testing.T) {
+	fs := &fakeStore{reloadRows: []Row{{User: "alice", HasBudget: true, Amount: ptrInt(50)}}}
+	m := newTestModel(fs, []Row{{User: "alice", ProductSKU: SKUAICredits}})
+
+	m, _ = step(m, enter()) // browsing -> editing
+	if m.mode != modeEditing {
+		t.Fatalf("mode = %v, want editing", m.mode)
+	}
+	m, _ = step(m, runes("5"))
+	m, _ = step(m, runes("0"))
+	m, _ = step(m, enter()) // editing -> confirming
+	if m.mode != modeConfirming || m.confirm != confirmSet {
+		t.Fatalf("mode/confirm = %v/%v, want confirming/set", m.mode, m.confirm)
+	}
+	m, cmd := step(m, runes("y")) // confirm -> applying
+	if m.mode != modeApplying {
+		t.Fatalf("mode = %v, want applying", m.mode)
+	}
+	if cmd == nil {
+		t.Fatal("expected upsert command")
+	}
+	msg := cmd()
+	if len(fs.upsertCalls) != 1 || fs.upsertCalls[0] != (upsertCall{"alice", 50, SKUAICredits}) {
+		t.Fatalf("upsert calls = %v, want one {alice 50 ai_credits}", fs.upsertCalls)
+	}
+	m, reload := step(m, msg.(appliedMsg)) // success -> reload
+	if reload == nil {
+		t.Fatal("expected reload after successful upsert")
+	}
+	if m.mode != modeApplying { // still applying until reload returns
+		t.Fatalf("mode = %v, want applying", m.mode)
+	}
+	m, _ = step(m, reload().(rowsLoadedMsg))
+	if m.mode != modeBrowsing {
+		t.Fatalf("mode = %v, want browsing", m.mode)
+	}
+}
+
+func TestEditCancelDoesNothing(t *testing.T) {
+	fs := &fakeStore{}
+	m := newTestModel(fs, []Row{{User: "alice"}})
+	m, _ = step(m, enter())
+	m, _ = step(m, runes("50"))
+	m, _ = step(m, enter())    // confirming
+	m, _ = step(m, runes("n")) // anything but y cancels
+	if m.mode != modeBrowsing {
+		t.Fatalf("mode = %v, want browsing", m.mode)
+	}
+	if len(fs.upsertCalls) != 0 {
+		t.Fatalf("upsert calls = %v, want none", fs.upsertCalls)
+	}
+}
+
+func TestEditInvalidAmountStaysEditing(t *testing.T) {
+	m := newTestModel(&fakeStore{}, []Row{{User: "alice"}})
+	m, _ = step(m, enter())
+	m, _ = step(m, runes("abc"))
+	m, _ = step(m, enter())
+	if m.mode != modeEditing {
+		t.Fatalf("mode = %v, want editing (invalid amount)", m.mode)
+	}
+	if m.status == "" {
+		t.Error("expected an error status for invalid amount")
+	}
+}
+
+func TestDeleteFlow(t *testing.T) {
+	fs := &fakeStore{reloadRows: []Row{{User: "alice"}}}
+	m := newTestModel(fs, []Row{{User: "alice", HasBudget: true, Amount: ptrInt(30), ID: "bgt_1"}})
+	m, _ = step(m, runes("d")) // browsing -> confirming(delete)
+	if m.mode != modeConfirming || m.confirm != confirmDelete {
+		t.Fatalf("mode/confirm = %v/%v, want confirming/delete", m.mode, m.confirm)
+	}
+	m, cmd := step(m, runes("y"))
+	if cmd == nil {
+		t.Fatal("expected delete command")
+	}
+	msg := cmd()
+	if len(fs.deleteCalls) != 1 || fs.deleteCalls[0] != "bgt_1" {
+		t.Fatalf("delete calls = %v, want [bgt_1]", fs.deleteCalls)
+	}
+	m, reload := step(m, msg.(deletedMsg))
+	if reload == nil {
+		t.Fatal("expected reload after delete")
+	}
+}
+
+func TestDeleteOnRowWithoutBudgetIsNoop(t *testing.T) {
+	fs := &fakeStore{}
+	m := newTestModel(fs, []Row{{User: "alice", HasBudget: false}})
+	m, _ = step(m, runes("d"))
+	if m.mode != modeBrowsing {
+		t.Fatalf("mode = %v, want browsing", m.mode)
+	}
+	if len(fs.deleteCalls) != 0 {
+		t.Fatalf("delete calls = %v, want none", fs.deleteCalls)
+	}
+}
+
+func TestUpsertErrorSurfaces(t *testing.T) {
+	fs := &fakeStore{upsertErr: errFake}
+	m := newTestModel(fs, []Row{{User: "alice"}})
+	m, _ = step(m, enter())
+	m, _ = step(m, runes("50"))
+	m, _ = step(m, enter())
+	_, cmd := step(m, runes("y"))
+	applied := cmd().(appliedMsg)
+	m, reload := step(m, applied)
+	if m.mode != modeBrowsing {
+		t.Fatalf("mode = %v, want browsing after error", m.mode)
+	}
+	if reload != nil {
+		t.Error("no reload should run after a failed upsert")
+	}
+	if m.status == "" {
+		t.Error("expected error status")
+	}
+}
+
+func ptrInt(n int) *int { return &n }
+
+var errFake = fmtError("boom")
+
+type fmtError string
+
+func (e fmtError) Error() string { return string(e) }

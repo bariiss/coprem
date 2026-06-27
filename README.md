@@ -46,10 +46,9 @@ go test ./...                  # run all tests
 
 The project enforces strict code quality and security checks on both CI and locally via git hooks:
 
-* **Linter**: `golangci-lint run` (uses `.golangci.yml` version 2 rules).
-* **Security Scan**: `semgrep scan --config "p/owasp-top-ten" --config "p/gosec" --config "p/golang" --config "p/security-audit" --error`.
-* **Git Pre-commit Hook**: Automatically executes `go test`, `golangci-lint`, and `semgrep` scan before allowing any commit.
-
+- **Linter**: `golangci-lint run` (uses `.golangci.yml` version 2 rules).
+- **Security Scan**: `semgrep scan --config "p/owasp-top-ten" --config "p/gosec" --config "p/golang" --config "p/security-audit" --error`.
+- **Git Pre-commit Hook**: Automatically executes `go test`, `golangci-lint`, and `semgrep` scan before allowing any commit.
 
 ## Release
 

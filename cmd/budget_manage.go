@@ -3,9 +3,12 @@ package cmd
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
+	"time"
 
 	githubapi "github.com/bariiss/coprem/internal/github"
+	"github.com/bariiss/coprem/internal/output"
 	budgettui "github.com/bariiss/coprem/internal/tui/budgettui"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/spf13/cobra"
@@ -19,7 +22,8 @@ var budgetManageCmd = &cobra.Command{
 
 // budgetStore adapts *githubapi.Client to budgettui.Store.
 type budgetStore struct {
-	client *githubapi.Client
+	client    *githubapi.Client
+	netByUser map[string]float64 // additional usage billed per user this period
 }
 
 func (s budgetStore) Upsert(ctx context.Context, user string, amount int, sku string) (string, error) {
@@ -44,22 +48,50 @@ func (s budgetStore) Reload(ctx context.Context, sku string) ([]budgettui.Row, e
 	}
 	budgets = filterBudgetsBySKU(budgets, sku)
 	rows := mergeUserBudgetRows(users, budgets, sku)
-	return toTUIRows(rows), nil
+	return s.toTUIRows(rows), nil
 }
 
-func toTUIRows(rows []userBudgetRow) []budgettui.Row {
+func (s budgetStore) toTUIRows(rows []userBudgetRow) []budgettui.Row {
 	out := make([]budgettui.Row, 0, len(rows))
 	for _, r := range rows {
-		out = append(out, budgettui.Row{
+		row := budgettui.Row{
 			User:       r.User,
 			HasBudget:  r.HasBudget,
 			Amount:     r.Amount,
 			Consumed:   r.Consumed,
 			ProductSKU: r.ProductSKU,
 			ID:         r.ID,
-		})
+		}
+		if net, ok := s.netByUser[r.User]; ok {
+			row.Net = &net
+		}
+		out = append(out, row)
 	}
 	return out
+}
+
+// fetchNetByUser returns the additional usage billed (NET) per user for the
+// current month in a single premium usage call, grouped client-side by user.
+func fetchNetByUser(ctx context.Context, client *githubapi.Client) (map[string]float64, error) {
+	p, err := resolvePeriod(time.Now(), premiumOptions{Timeframe: "current-month"})
+	if err != nil {
+		return nil, err
+	}
+	report, err := fetchCumulative(ctx, client, p, premiumOptions{
+		Timeframe:   "current-month",
+		GroupBy:     "none",
+		Breakdown:   "total",
+		Granularity: "cumulative",
+	})
+	if err != nil {
+		return nil, err
+	}
+	grouped := output.GroupReport(report, "user", "total")
+	net := make(map[string]float64, len(grouped.Rows))
+	for _, row := range grouped.Rows {
+		net[row.Key] = row.NetAmount
+	}
+	return net, nil
 }
 
 func runBudgetManage(cmd *cobra.Command, args []string) error {
@@ -83,6 +115,12 @@ func runBudgetManage(cmd *cobra.Command, args []string) error {
 	}
 
 	store := budgetStore{client: client}
+	netByUser, err := fetchNetByUser(ctx, client)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "warning: could not load NET usage; NET column will be empty: %v\n", err)
+	}
+	store.netByUser = netByUser
+
 	rows, err := store.Reload(ctx, budgetOpts.ProductSKU)
 	if err != nil {
 		return err

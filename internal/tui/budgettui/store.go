@@ -19,6 +19,7 @@ type Row struct {
 	HasBudget  bool
 	Amount     *int     // nil when the user has no budget
 	Consumed   *float64 // nil when the user has no budget
+	Net        *float64 // additional usage billed this period; nil when no usage data
 	ProductSKU string
 	ID         string // budget id; empty when the user has no budget
 }

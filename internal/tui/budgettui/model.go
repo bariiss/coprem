@@ -83,6 +83,7 @@ func New(ctx context.Context, store Store, sku, enterprise string, rows []Row) M
 			{Title: "USER", Width: 28},
 			{Title: "AMOUNT", Width: 10},
 			{Title: "CONSUMED", Width: 12},
+			{Title: "NET", Width: 10},
 			{Title: "SKU", Width: 18},
 		}),
 		table.WithFocused(true),
@@ -116,7 +117,7 @@ func (m *Model) applyFilter() {
 	m.rows = filterRows(m.allRows, m.filter)
 	tableRows := make([]table.Row, 0, len(m.rows))
 	for _, r := range m.rows {
-		tableRows = append(tableRows, table.Row{r.User, budgetCell(r.Amount), consumedCell(r.Consumed), r.ProductSKU})
+		tableRows = append(tableRows, table.Row{r.User, budgetCell(r.Amount), consumedCell(r.Consumed), consumedCell(r.Net), r.ProductSKU})
 	}
 	m.table.SetRows(tableRows)
 }

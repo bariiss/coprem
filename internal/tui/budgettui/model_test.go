@@ -2,6 +2,7 @@ package budgettui
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -52,6 +53,18 @@ func step(m Model, msg tea.Msg) (Model, tea.Cmd) {
 func runes(s string) tea.KeyMsg { return tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(s)} }
 func enter() tea.KeyMsg         { return tea.KeyMsg{Type: tea.KeyEnter} }
 func esc() tea.KeyMsg           { return tea.KeyMsg{Type: tea.KeyEsc} }
+
+func TestNetColumnRendered(t *testing.T) {
+	net := 403.78
+	m := newTestModel(&fakeStore{}, []Row{{User: "alice", Net: &net}})
+	view := m.View()
+	if !strings.Contains(view, "NET") {
+		t.Errorf("view missing NET column header; got:\n%s", view)
+	}
+	if !strings.Contains(view, "$403.78") {
+		t.Errorf("view missing NET value $403.78; got:\n%s", view)
+	}
+}
 
 func TestNewShowsRows(t *testing.T) {
 	m := newTestModel(&fakeStore{}, []Row{{User: "alice"}, {User: "bob"}})

@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"runtime"
 	"strings"
 	"time"
 
@@ -51,23 +52,24 @@ from 'gh auth token' when the GitHub CLI is already authenticated.
 }
 
 var (
-	version = "dev"
-	commit  = "none"
-	date    = "unknown"
+	version   = "dev"
+	commit    = "none"
+	date      = "unknown"
+	goversion = runtime.Version()
 )
 
 func SetVersionInfo(v, c, d string) {
 	version = v
 	commit = c
 	date = d
-	rootCmd.Version = fmt.Sprintf("%s (commit: %s, date: %s)", version, commit, date)
+	rootCmd.Version = fmt.Sprintf("%s (commit: %s, date: %s, go: %s)", version, commit, date, goversion)
 }
 
 var versionCmd = &cobra.Command{
 	Use:   "version",
 	Short: "Print the version number of coprem",
 	Run: func(_ *cobra.Command, _ []string) {
-		fmt.Printf("coprem version %s (commit: %s, date: %s)\n", version, commit, date)
+		fmt.Printf("coprem version %s (commit: %s, date: %s, go: %s)\n", version, commit, date, goversion)
 	},
 }
 

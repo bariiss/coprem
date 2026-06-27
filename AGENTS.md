@@ -26,10 +26,9 @@ go test ./internal/tui/budgettui -run TestName   # run a single test
 golangci-lint run              # lint (also runs as the pre-commit hook)
 ```
 
-CI (`.github/workflows/ci.yml`) runs golangci-lint **v2.12.2**, `go test ./...`, and
-`go build ./...`. The local pre-commit hook (`.git/hooks/pre-commit`) is just `golangci-lint run`,
-so keep the installed binary at the same version. Releases are tag-driven via GoReleaser
-(`.goreleaser.yaml`) — push a `vX.Y.Z` tag.
+CI (`.github/workflows/ci.yml`) runs `go test ./...`, `go build ./...`, `golangci-lint` **v2.12.2**, and a deep Semgrep scan (`p/owasp-top-ten`, `p/gosec`, `p/golang`, `p/security-audit`).
+The local pre-commit hook (`.git/hooks/pre-commit`) runs `go test ./...`, `golangci-lint run`, and the same deep Semgrep scan before letting any commit pass.
+Releases are tag-driven via GoReleaser (`.goreleaser.yaml`) — push a `vX.Y.Z` tag.
 
 ## Architecture
 

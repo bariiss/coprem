@@ -11,6 +11,21 @@ Set the target enterprise with `--enterprise` or `COPREM_ENTERPRISE`.
 
 ## Install
 
+### Homebrew (macOS)
+
+```sh
+brew tap bariiss/coprem
+brew install --cask coprem
+```
+
+Upgrade with:
+
+```sh
+brew upgrade --cask coprem
+```
+
+### Go
+
 Install the latest version with Go:
 
 ```sh
@@ -20,7 +35,7 @@ go install github.com/bariiss/coprem@latest
 Install a specific release:
 
 ```sh
-go install github.com/bariiss/coprem@v0.1.0
+go install github.com/bariiss/coprem@v0.3.9
 ```
 
 Make sure your Go binary directory is on `PATH`:

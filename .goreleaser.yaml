@@ -59,3 +59,22 @@ release:
   github:
     owner: bariiss
     name: coprem
+
+homebrew_casks:
+  - name: coprem
+    repository:
+      owner: bariiss
+      name: homebrew-coprem
+      token: "{{ .Env.GITHUB_TOKEN }}"
+    homepage: "https://github.com/bariiss/coprem"
+    description: "GitHub Enterprise Copilot premium-request analytics CLI"
+    binaries:
+      - coprem
+    # Binary is not code-signed; remove quarantine bit on install so macOS
+    # Gatekeeper does not block it.
+    hooks:
+      post:
+        install: |
+          if OS.mac?
+            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/coprem"]
+          end

@@ -8,6 +8,8 @@ import (
 	"strings"
 )
 
+// EnterpriseAuthHint returns a formatted helper message with CLI command suggestions
+// for setting up enterprise billing token authentication.
 func EnterpriseAuthHint(hostname, ghUser string) string {
 	var b strings.Builder
 	b.WriteString("enterprise billing APIs need a token with admin:enterprise scope.\n")
@@ -39,6 +41,8 @@ func EnterpriseAuthHint(hostname, ghUser string) string {
 	return b.String()
 }
 
+// PreferredEnterpriseGHUser searches authenticated gh CLI profiles to find one
+// with enterprise scope when the active account does not have it.
 func PreferredEnterpriseGHUser(hostname string) (string, bool) {
 	accounts, err := parseGHAuthAccounts(hostname)
 	if err != nil || len(accounts) == 0 {
@@ -47,6 +51,8 @@ func PreferredEnterpriseGHUser(hostname string) (string, bool) {
 	return preferredEnterpriseGHUserFromAccounts(accounts)
 }
 
+// GHAccountsWithEnterpriseScope returns the usernames of all authenticated GitHub
+// CLI accounts that possess the admin:enterprise scope.
 func GHAccountsWithEnterpriseScope(hostname string) []string {
 	accounts, err := parseGHAuthAccounts(hostname)
 	if err != nil {
@@ -67,6 +73,8 @@ type ghAccount struct {
 	HasEnterpriseScope   bool
 }
 
+// parseGHAuthAccounts executes 'gh auth status' to retrieve the list of authenticated
+// accounts for the given hostname.
 func parseGHAuthAccounts(hostname string) ([]ghAccount, error) {
 	args := []string{"auth", "status"}
 	if hostname != "" {
@@ -82,6 +90,7 @@ func parseGHAuthAccounts(hostname string) ([]ghAccount, error) {
 	return parseGHAuthAccountsFromOutput(string(out), hostname)
 }
 
+// parseGHAuthAccountsFromOutput parses the raw output of 'gh auth status' into a slice of ghAccount structs.
 func parseGHAuthAccountsFromOutput(output, hostname string) ([]ghAccount, error) {
 	host := hostname
 	if host == "" {
@@ -115,6 +124,7 @@ func parseGHAuthAccountsFromOutput(output, hostname string) ([]ghAccount, error)
 	return accounts, nil
 }
 
+// ActiveGHAccountHasEnterpriseScope checks if the active GitHub CLI profile for the hostname has the admin:enterprise scope.
 func ActiveGHAccountHasEnterpriseScope(hostname string) bool {
 	accounts, err := parseGHAuthAccounts(hostname)
 	if err != nil {
@@ -128,6 +138,7 @@ func ActiveGHAccountHasEnterpriseScope(hostname string) bool {
 	return false
 }
 
+// ShouldPreferGHToken determines if coprem should use the gh CLI token helper rather than falling back to environment variables.
 func ShouldPreferGHToken(hostname, ghUser string) bool {
 	if ghUser != "" {
 		return true
@@ -135,6 +146,7 @@ func ShouldPreferGHToken(hostname, ghUser string) bool {
 	return ActiveGHAccountHasEnterpriseScope(hostname)
 }
 
+// preferredEnterpriseGHUserFromAccounts checks if there is exactly one account with enterprise scope that is not currently active.
 func preferredEnterpriseGHUserFromAccounts(accounts []ghAccount) (string, bool) {
 	var active *ghAccount
 	var enterprise []ghAccount

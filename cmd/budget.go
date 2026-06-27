@@ -90,7 +90,7 @@ var budgetDeleteCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(budgetCmd)
-	budgetCmd.AddCommand(budgetUsersCmd, budgetListCmd, budgetSetCmd, budgetDeleteCmd)
+	budgetCmd.AddCommand(budgetUsersCmd, budgetListCmd, budgetSetCmd, budgetDeleteCmd, budgetManageCmd)
 
 	budgetListCmd.Flags().StringVar(&budgetOpts.User, "user", "", "filter budgets for a specific user login")
 	budgetListCmd.Flags().StringVar(&budgetOpts.ProductSKU, "product-sku", budgetOpts.ProductSKU, "filter by product SKU: ai_credits or premium_requests")
@@ -107,6 +107,8 @@ func init() {
 
 	budgetDeleteCmd.Flags().StringVar(&budgetOpts.BudgetID, "id", "", "budget ID to delete")
 	_ = budgetDeleteCmd.MarkFlagRequired("id")
+
+	budgetManageCmd.Flags().StringVar(&budgetOpts.ProductSKU, "product-sku", githubapi.BudgetProductAICredits, "starting product SKU: ai_credits or premium_requests")
 }
 
 func runBudgetUsers(cmd *cobra.Command, args []string) error {

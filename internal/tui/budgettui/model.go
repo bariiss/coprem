@@ -327,20 +327,17 @@ func (m Model) onDeleted(msg deletedMsg) (Model, tea.Cmd) {
 
 func (m Model) View() string {
 	var b strings.Builder
-	b.WriteString(titleStyle.Render(fmt.Sprintf("coprem · %s · %s", m.enterprise, m.sku)))
-	b.WriteString("\n")
-	b.WriteString(m.table.View())
-	b.WriteString("\n")
+	fmt.Fprintf(&b, "%s\n%s\n", titleStyle.Render(fmt.Sprintf("coprem · %s · %s", m.enterprise, m.sku)), m.table.View())
 	switch m.mode {
 	case modeFiltering:
-		b.WriteString("filter: " + m.input.View())
+		fmt.Fprintf(&b, "filter: %s", m.input.View())
 	case modeEditing:
-		b.WriteString(fmt.Sprintf("New monthly budget for %s ($): %s", m.pendingUser, m.input.View()))
+		fmt.Fprintf(&b, "New monthly budget for %s ($): %s", m.pendingUser, m.input.View())
 	case modeConfirming:
 		if m.confirm == confirmDelete {
-			b.WriteString(fmt.Sprintf("Delete budget for %s? [y/N]", m.pendingUser))
+			fmt.Fprintf(&b, "Delete budget for %s? [y/N]", m.pendingUser)
 		} else {
-			b.WriteString(fmt.Sprintf("Set $%d/month for %s with hard stop? [y/N]", m.pendingAmount, m.pendingUser))
+			fmt.Fprintf(&b, "Set $%d/month for %s with hard stop? [y/N]", m.pendingAmount, m.pendingUser)
 		}
 	case modeApplying:
 		b.WriteString("working…")
@@ -348,7 +345,7 @@ func (m Model) View() string {
 		b.WriteString(helpStyle.Render("↑/↓ move · enter edit · d delete · / filter · s toggle sku · q quit"))
 	}
 	if m.status != "" {
-		b.WriteString("\n" + statusStyle.Render(m.status))
+		fmt.Fprintf(&b, "\n%s", statusStyle.Render(m.status))
 	}
 	return b.String()
 }

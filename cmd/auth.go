@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -48,6 +49,9 @@ func init() {
 }
 
 func runSaveZshrc(cmd *cobra.Command, _ []string) error {
+	if err := validateEnvName(authOpts.EnvName); err != nil {
+		return err
+	}
 	ghUser := authOpts.GHUser
 	if ghUser == "" {
 		ghUser = opts.GHUser
@@ -93,6 +97,28 @@ func runSaveZshrc(cmd *cobra.Command, _ []string) error {
 func managedTokenBlock(envName, token string) string {
 	escaped := strings.ReplaceAll(token, "'", "'\\''")
 	return fmt.Sprintf("# BEGIN coprem\nexport %s='%s'\n# END coprem\n", envName, escaped)
+}
+
+// validateEnvName ensures the environment variable name is safe to embed in a
+// shell export line. POSIX env names are [A-Za-z_][A-Za-z0-9_]*. Without this,
+// a crafted --env value like 'FOO=$(id)' would be written verbatim into
+// ~/.zshrc and executed on the next shell startup.
+func validateEnvName(name string) error {
+	if name == "" {
+		return errors.New("environment variable name is empty")
+	}
+	for i, c := range name {
+		isAlpha := c >= 'A' && c <= 'Z' || c >= 'a' && c <= 'z'
+		isDigit := c >= '0' && c <= '9'
+		isUnderscore := c == '_'
+		if i == 0 && !isAlpha && !isUnderscore {
+			return fmt.Errorf("invalid environment variable name %q: must start with a letter or underscore", name)
+		}
+		if !isAlpha && !isDigit && !isUnderscore {
+			return fmt.Errorf("invalid environment variable name %q: only letters, digits, and underscores allowed", name)
+		}
+	}
+	return nil
 }
 
 func replaceManagedBlock(content, block string) string {

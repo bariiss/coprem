@@ -212,15 +212,15 @@ func WriteCSV(w io.Writer, report Report) error {
 	}
 	for _, row := range report.Rows {
 		if err := cw.Write([]string{
-			row.Date,
-			row.Key,
-			row.Product,
-			row.SKU,
-			row.Model,
-			row.User,
-			row.Organization,
-			row.CostCenter,
-			row.UnitType,
+			sanitizeCSVField(row.Date),
+			sanitizeCSVField(row.Key),
+			sanitizeCSVField(row.Product),
+			sanitizeCSVField(row.SKU),
+			sanitizeCSVField(row.Model),
+			sanitizeCSVField(row.User),
+			sanitizeCSVField(row.Organization),
+			sanitizeCSVField(row.CostCenter),
+			sanitizeCSVField(row.UnitType),
 			float(row.GrossQuantity),
 			float(row.GrossAmount),
 			float(row.DiscountQuantity),
@@ -232,6 +232,23 @@ func WriteCSV(w io.Writer, report Report) error {
 		}
 	}
 	return cw.Error()
+}
+
+// sanitizeCSVField prevents CSV/formula injection. If a field starts with a
+// character that spreadsheet applications interpret as a formula (=, +, -, @,
+// tab, CR), prefixing with a single quote neutralises it. This matters because
+// user-controlled values (GitHub logins, model names, org names) flow into CSV
+// output and could otherwise execute macros when the file is opened in Excel.
+func sanitizeCSVField(field string) string {
+	if field == "" {
+		return ""
+	}
+	switch field[0] {
+	case '=', '+', '-', '@', '	', '\r':
+		return "'" + field
+	default:
+		return field
+	}
 }
 
 func ResolveColor(w io.Writer, mode string) (bool, error) {

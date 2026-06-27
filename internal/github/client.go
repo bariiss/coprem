@@ -13,7 +13,22 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
+	"time"
 )
+
+// defaultHTTPTimeout caps the overall HTTP request time when the caller has
+// not set an explicit *http.Client, since http.DefaultClient has none.
+const defaultHTTPTimeout = 60 * time.Second
+
+// maxResponseBody limits how many bytes we read from a single API response,
+// preventing a malicious/compromised server from exhausting memory with an
+// infinitely long body.
+const maxResponseBody = 100 << 20 // 100 MB
+
+// maxPaginationPages is a safety ceiling for paginated list endpoints. If a
+// server keeps returning a non-empty "next" link (a bug or a hostile endpoint)
+// we stop instead of looping forever.
+const maxPaginationPages = 1000
 
 type ClientOptions struct {
 	HTTPClient  *http.Client
@@ -108,7 +123,8 @@ func (u *UsageItem) UnmarshalJSON(data []byte) error {
 func NewClient(o ClientOptions) *Client {
 	httpClient := o.HTTPClient
 	if httpClient == nil {
-		httpClient = http.DefaultClient
+		// http.DefaultClient has no timeout, which can hang indefinitely.
+		httpClient = &http.Client{Timeout: defaultHTTPTimeout}
 	}
 	baseURL := strings.TrimRight(o.BaseURL, "/")
 	if baseURL == "" {
@@ -125,6 +141,29 @@ func NewClient(o ClientOptions) *Client {
 		token:      o.Token,
 		userAgent:  userAgent,
 	}
+}
+
+// validateBaseURL ensures the API base URL uses http or https. Without this,
+// a misconfigured --api-base-url could cause the Bearer token to be sent to
+// an unexpected scheme (token leak) or enable SSRF via gopher/file schemes.
+func validateBaseURL(rawURL string) error {
+	parsed, err := url.Parse(rawURL)
+	if err != nil {
+		return fmt.Errorf("invalid API base URL %q: %w", rawURL, err)
+	}
+	if parsed.Scheme != "http" && parsed.Scheme != "https" {
+		return fmt.Errorf("API base URL must use http or https scheme, got %q", parsed.Scheme)
+	}
+	if parsed.Host == "" {
+		return errors.New("API base URL must have a host")
+	}
+	return nil
+}
+
+// limitedReader wraps resp.Body with a hard size cap to prevent a malicious
+// or compromised server from streaming an unbounded response into memory.
+func limitedReader(body io.ReadCloser) io.Reader {
+	return io.LimitReader(body, maxResponseBody)
 }
 
 func (c *Client) PremiumRequestUsage(ctx context.Context, enterprise string, query PremiumUsageQuery) (PremiumUsageResponse, error) {
@@ -172,6 +211,9 @@ func (c *Client) CopilotSeatLogins(ctx context.Context, enterprise string) ([]st
 		if next == "" {
 			break
 		}
+		if page >= maxPaginationPages {
+			break
+		}
 		page++
 	}
 	return logins, nil
@@ -183,6 +225,9 @@ func (c *Client) get(ctx context.Context, path string, query url.Values, out any
 }
 
 func (c *Client) doJSON(ctx context.Context, method, path string, query url.Values, body any, out any) error {
+	if err := validateBaseURL(c.baseURL); err != nil {
+		return err
+	}
 	endpoint := c.baseURL + path
 	if encoded := query.Encode(); encoded != "" {
 		endpoint += "?" + encoded
@@ -215,7 +260,7 @@ func (c *Client) doJSON(ctx context.Context, method, path string, query url.Valu
 	}
 	defer func() { _ = resp.Body.Close() }()
 
-	respBody, err := io.ReadAll(resp.Body)
+	respBody, err := io.ReadAll(limitedReader(resp.Body))
 	if err != nil {
 		return err
 	}
@@ -232,6 +277,9 @@ func (c *Client) doJSON(ctx context.Context, method, path string, query url.Valu
 }
 
 func (c *Client) getWithNext(ctx context.Context, path string, query url.Values, out any) (string, error) {
+	if err := validateBaseURL(c.baseURL); err != nil {
+		return "", err
+	}
 	endpoint := c.baseURL + path
 	if encoded := query.Encode(); encoded != "" {
 		endpoint += "?" + encoded
@@ -253,7 +301,7 @@ func (c *Client) getWithNext(ctx context.Context, path string, query url.Values,
 	}
 	defer func() { _ = resp.Body.Close() }()
 
-	body, err := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(limitedReader(resp.Body))
 	if err != nil {
 		return "", err
 	}

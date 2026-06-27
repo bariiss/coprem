@@ -106,6 +106,9 @@ func (c *Client) ListBudgets(ctx context.Context, enterprise string, query Budge
 		if next == "" && len(out.Budgets) == 0 {
 			break
 		}
+		if page >= maxPaginationPages {
+			break
+		}
 		page++
 	}
 	return budgets, nil

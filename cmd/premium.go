@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net/http"
 	"os"
 	"sort"
 	"strings"
@@ -81,39 +80,22 @@ func init() {
 	premiumCmd.Flags().StringVar(&premiumOpts.Breakdown, "breakdown", premiumOpts.Breakdown, "secondary breakdown for grouped output: total or model")
 	premiumCmd.Flags().StringVar(&premiumOpts.Granularity, "granularity", premiumOpts.Granularity, "granularity: cumulative or daily")
 	premiumCmd.Flags().StringVar(&premiumOpts.SortBy, "sort-by", premiumOpts.SortBy, "table sort: net-amount, net-quantity, gross-amount, gross-quantity, key, date")
+
+	sort.Strings(output.SortKeys)
 }
 
 func runPremium(cmd *cobra.Command, _ []string) error {
-	if strings.TrimSpace(opts.Enterprise) == "" {
-		return errors.New("missing enterprise: pass --enterprise or set COPREM_ENTERPRISE")
+	if err := requireEnterprise(); err != nil {
+		return err
 	}
 	if err := validatePremiumOptions(premiumOpts); err != nil {
 		return err
 	}
 
-	ghUser := resolveGHUser()
-	token, source, err := githubapi.ResolveToken(githubapi.TokenOptions{
-		PreferredEnv: opts.TokenEnv,
-		UseGH:        opts.UseGHToken,
-		GHUser:       ghUser,
-		GHHostname:   opts.GHHostname,
-		PreferGH:     githubapi.ShouldPreferGHToken(opts.GHHostname, ghUser),
-	})
+	client, err := newGitHubClient()
 	if err != nil {
 		return err
 	}
-	if token == "" {
-		return errors.New("missing GitHub token: set COPREM_TOKEN, GITHUB_TOKEN, GH_TOKEN, COPILOT_PREMIUM_TOKEN, pass --token-env, or authenticate gh")
-	}
-
-	client := githubapi.NewClient(githubapi.ClientOptions{
-		HTTPClient:  &http.Client{Timeout: opts.Timeout},
-		BaseURL:     opts.APIBaseURL,
-		APIVersion:  opts.APIVersion,
-		Token:       token,
-		UserAgent:   "coprem",
-		TokenSource: source,
-	})
 
 	now := time.Now()
 	period, err := resolvePeriod(now, premiumOpts)
@@ -451,8 +433,4 @@ func periodLabel(start, end time.Time) string {
 		return start.Format("2006-01-02")
 	}
 	return start.Format("2006-01-02") + ".." + end.Format("2006-01-02")
-}
-
-func init() {
-	sort.Strings(output.SortKeys)
 }

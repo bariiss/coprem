@@ -3,6 +3,7 @@ package cmd
 import (
 	"bufio"
 	"context"
+	"encoding/csv"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -189,12 +190,20 @@ func runBudgetList(cmd *cobra.Command, _ []string) error {
 			"rows":       rows,
 		})
 	case "csv":
-		_, _ = fmt.Fprintln(cmd.OutOrStdout(), "user,has_budget,amount,consumed,product_sku,id")
+		cw := csv.NewWriter(cmd.OutOrStdout())
+		_ = cw.Write([]string{"user", "has_budget", "amount", "consumed", "product_sku", "id"})
 		for _, row := range rows {
-			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "%s,%t,%s,%s,%s,%s\n",
-				row.User, row.HasBudget, formatAmount(row.Amount), formatConsumed(row.Consumed), row.ProductSKU, row.ID)
+			_ = cw.Write([]string{
+				row.User,
+				strconv.FormatBool(row.HasBudget),
+				formatAmount(row.Amount),
+				formatConsumed(row.Consumed),
+				row.ProductSKU,
+				row.ID,
+			})
 		}
-		return nil
+		cw.Flush()
+		return cw.Error()
 	default:
 		if len(rows) == 0 {
 			_, _ = fmt.Fprintln(cmd.OutOrStdout(), "No users found.")

@@ -28,6 +28,12 @@ jobs:
         with:
           version: v2.12.2
 
+      - name: Install Semgrep
+        run: python3 -m pip install semgrep
+
+      - name: Semgrep Scan
+        run: semgrep scan --config "p/owasp-top-ten" --config "p/gosec" --config "p/golang" --config "p/security-audit" --error
+
       - name: Test
         run: go test ./...
 

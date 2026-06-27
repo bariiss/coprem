@@ -71,15 +71,17 @@ func (s budgetStore) toTUIRows(rows []userBudgetRow) []budgettui.Row {
 }
 
 // fetchNetByUser returns the additional usage billed (NET) per user for the
-// current month in a single premium usage call, grouped client-side by user.
+// current month. The premium usage endpoint only attributes line items to a
+// user when queried with a user filter, so this fetches per user (same as
+// `premium --group-by user`) and aggregates NET by user.
 func fetchNetByUser(ctx context.Context, client *githubapi.Client) (map[string]float64, error) {
 	p, err := resolvePeriod(time.Now(), premiumOptions{Timeframe: "current-month"})
 	if err != nil {
 		return nil, err
 	}
-	report, err := fetchCumulative(ctx, client, p, premiumOptions{
+	report, err := fetchUserGrouped(ctx, client, p, premiumOptions{
 		Timeframe:   "current-month",
-		GroupBy:     "none",
+		GroupBy:     "user",
 		Breakdown:   "total",
 		Granularity: "cumulative",
 	})

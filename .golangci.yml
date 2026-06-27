@@ -1,0 +1,126 @@
+# yaml-language-server: $schema=https://golangci-lint.run/jsonschema/golangci.next.jsonschema.json
+version: "2"
+
+run:
+  timeout: 5m
+  tests: true
+
+linters:
+  default: none
+  enable:
+    - errcheck
+    - revive
+    - govet
+    - staticcheck
+    - gosec
+    - ineffassign
+    - misspell
+    - gocyclo
+    - bodyclose
+    - unused
+    - unparam
+    - prealloc
+    - copyloopvar
+    - nolintlint
+    - errorlint
+    - nilerr
+    - nilnesserr
+    - noctx
+    - whitespace
+    - exhaustive
+    - wastedassign
+    - forbidigo
+    - usestdlibvars
+    - rowserrcheck
+    - sqlclosecheck
+    - makezero
+    - perfsprint
+    - unconvert
+    - gocritic
+    - dupword
+    - predeclared
+    - loggercheck
+    - sloglint
+    - mirror
+    - fatcontext
+    - dupl
+    - gocognit
+    - nestif
+    - funlen
+    - maintidx
+    - errname
+    - errchkjson
+    - nilnil
+    - recvcheck
+    - reassign
+    - contextcheck
+    - gomoddirectives
+    - durationcheck
+    - bidichk
+    - forcetypeassert
+    - musttag
+
+  settings:
+    errcheck:
+      check-type-assertions: true
+      check-blank: false
+      disable-default-exclusions: false
+
+    revive:
+      rules:
+        - name: blank-imports
+        - name: context-as-argument
+        - name: error-return
+        - name: error-strings
+        - name: var-naming
+        - name: unused-parameter
+        - name: unused-receiver
+
+    gocritic:
+      enabled-checks:
+        - badLock
+        - badRegexp
+        - evalOrder
+        - httpNoBody
+        - nilValReturn
+        - sloppyReassign
+        - truncateCmp
+        - weakCond
+        - importShadow
+      disabled-checks:
+        - exitAfterDefer
+
+    gocyclo:
+      min-complexity: 30
+
+    forbidigo:
+      forbid:
+        - pattern: ^fmt\.Print.*$
+          msg: use structured logger instead of fmt.Print*
+        - pattern: ^panic$
+          msg: avoid panic in application code
+
+    dupl:
+      threshold: 100
+
+    funlen:
+      lines: 120
+      statements: 70
+
+    nestif:
+      min-complexity: 5
+
+    gocognit:
+      min-complexity: 30
+
+    maintidx:
+      under: 10
+
+  exclusions:
+    rules:
+      - path: ^cmd/
+        linters:
+          - forbidigo
+      - path: _test\.go
+        linters:
+          - dupl

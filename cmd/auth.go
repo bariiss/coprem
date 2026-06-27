@@ -47,7 +47,7 @@ func init() {
 	saveZshrcCmd.Flags().StringVar(&authOpts.GHUser, "gh-user", "", "GitHub CLI account to read with 'gh auth token --user'")
 }
 
-func runSaveZshrc(cmd *cobra.Command, args []string) error {
+func runSaveZshrc(cmd *cobra.Command, _ []string) error {
 	ghUser := authOpts.GHUser
 	if ghUser == "" {
 		ghUser = opts.GHUser
@@ -63,7 +63,7 @@ func runSaveZshrc(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	if token == "" {
-		return fmt.Errorf("no token found from %s or gh auth token", authOpts.EnvName)
+		return fmt.Errorf("no token resolved for %s", authOpts.EnvName)
 	}
 
 	zshrc := authOpts.Zshrc
@@ -75,18 +75,18 @@ func runSaveZshrc(cmd *cobra.Command, args []string) error {
 		zshrc = filepath.Join(home, ".zshrc")
 	}
 
-	content, err := os.ReadFile(zshrc)
+	content, err := os.ReadFile(zshrc) //nolint:gosec // CLI manages the user configuration file
 	if err != nil && !os.IsNotExist(err) {
 		return err
 	}
 
 	block := managedTokenBlock(authOpts.EnvName, token)
 	updated := replaceManagedBlock(string(content), block)
-	if err := os.WriteFile(zshrc, []byte(updated), 0o600); err != nil {
+	if err := os.WriteFile(zshrc, []byte(updated), 0o600); err != nil { //nolint:gosec // CLI manages the user configuration file
 		return err
 	}
 
-	fmt.Fprintf(cmd.OutOrStdout(), "saved %s from %s to %s\n", authOpts.EnvName, source, zshrc)
+	_, _ = fmt.Fprintf(cmd.OutOrStdout(), "saved %s from %s to %s\n", authOpts.EnvName, source, zshrc)
 	return nil
 }
 

@@ -111,11 +111,11 @@ func init() {
 	budgetManageCmd.Flags().StringVar(&budgetOpts.ProductSKU, "product-sku", githubapi.BudgetProductAICredits, "starting product SKU: ai_credits or premium_requests")
 }
 
-func runBudgetUsers(cmd *cobra.Command, args []string) error {
+func runBudgetUsers(cmd *cobra.Command, _ []string) error {
 	if err := requireEnterprise(); err != nil {
 		return err
 	}
-	client, _, err := newGitHubClient()
+	client, err := newGitHubClient()
 	if err != nil {
 		return err
 	}
@@ -139,18 +139,18 @@ func runBudgetUsers(cmd *cobra.Command, args []string) error {
 			"users":      users,
 		})
 	default:
-		fmt.Fprintf(cmd.OutOrStdout(), "Copilot seats (%d users):\n\n", len(users))
+		_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Copilot seats (%d users):\n\n", len(users))
 		printNumberedUsers(os.Stdout, users)
-		fmt.Fprintln(cmd.OutOrStdout(), "\nUse with: coprem budget set --user LOGIN --amount 50")
+		_, _ = fmt.Fprintln(cmd.OutOrStdout(), "\nUse with: coprem budget set --user LOGIN --amount 50")
 		return nil
 	}
 }
 
-func runBudgetList(cmd *cobra.Command, args []string) error {
+func runBudgetList(cmd *cobra.Command, _ []string) error {
 	if err := requireEnterprise(); err != nil {
 		return err
 	}
-	client, _, err := newGitHubClient()
+	client, err := newGitHubClient()
 	if err != nil {
 		return err
 	}
@@ -189,35 +189,35 @@ func runBudgetList(cmd *cobra.Command, args []string) error {
 			"rows":       rows,
 		})
 	case "csv":
-		fmt.Fprintln(cmd.OutOrStdout(), "user,has_budget,amount,consumed,product_sku,id")
+		_, _ = fmt.Fprintln(cmd.OutOrStdout(), "user,has_budget,amount,consumed,product_sku,id")
 		for _, row := range rows {
-			fmt.Fprintf(cmd.OutOrStdout(), "%s,%t,%s,%s,%s,%s\n",
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "%s,%t,%s,%s,%s,%s\n",
 				row.User, row.HasBudget, formatAmount(row.Amount), formatConsumed(row.Consumed), row.ProductSKU, row.ID)
 		}
 		return nil
 	default:
 		if len(rows) == 0 {
-			fmt.Fprintln(cmd.OutOrStdout(), "No users found.")
+			_, _ = fmt.Fprintln(cmd.OutOrStdout(), "No users found.")
 			return nil
 		}
 		w := tabwriter.NewWriter(cmd.OutOrStdout(), 0, 0, 2, ' ', 0)
-		fmt.Fprintln(w, "USER\tAMOUNT\tCONSUMED\tSKU\tID")
+		_, _ = fmt.Fprintln(w, "USER\tAMOUNT\tCONSUMED\tSKU\tID")
 		for _, row := range rows {
-			fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n",
+			_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n",
 				row.User, formatAmount(row.Amount), formatConsumed(row.Consumed), emptyDash(row.ProductSKU), emptyDash(row.ID))
 		}
 		return w.Flush()
 	}
 }
 
-func runBudgetSet(cmd *cobra.Command, args []string) error {
+func runBudgetSet(cmd *cobra.Command, _ []string) error {
 	if err := requireEnterprise(); err != nil {
 		return err
 	}
 	if err := validateBudgetProductSKU(budgetOpts.ProductSKU); err != nil {
 		return err
 	}
-	client, _, err := newGitHubClient()
+	client, err := newGitHubClient()
 	if err != nil {
 		return err
 	}
@@ -227,7 +227,7 @@ func runBudgetSet(cmd *cobra.Command, args []string) error {
 	}
 
 	if budgetOpts.Interactive {
-		return runBudgetSetInteractive(cmd, ctx, client)
+		return runBudgetSetInteractive(ctx, cmd, client)
 	}
 
 	users, err := resolveBudgetSetUsers(ctx, client)
@@ -253,13 +253,13 @@ func runBudgetSet(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			return fmt.Errorf("user %s: %w", user, err)
 		}
-		fmt.Fprintf(cmd.OutOrStdout(), "%s budget for %s: $%d/month (id: %s, sku: %s)\n",
+		_, _ = fmt.Fprintf(cmd.OutOrStdout(), "%s budget for %s: $%d/month (id: %s, sku: %s)\n",
 			action, user, budget.BudgetAmount, budget.ID, budget.BudgetProductSKU)
 	}
 	return nil
 }
 
-func runBudgetSetInteractive(cmd *cobra.Command, ctx context.Context, client *githubapi.Client) error {
+func runBudgetSetInteractive(ctx context.Context, cmd *cobra.Command, client *githubapi.Client) error {
 	users, err := discoverUsers(ctx, client, budgetOpts.Users, budgetOpts.UsersFile)
 	if err != nil {
 		return err
@@ -271,9 +271,9 @@ func runBudgetSetInteractive(cmd *cobra.Command, ctx context.Context, client *gi
 	in := bufio.NewReader(cmd.InOrStdin())
 	out := cmd.OutOrStdout()
 
-	fmt.Fprintf(out, "Select a user (%d Copilot seats):\n\n", len(users))
+	_, _ = fmt.Fprintf(out, "Select a user (%d Copilot seats):\n\n", len(users))
 	printNumberedUsers(os.Stdout, users)
-	fmt.Fprintln(out)
+	_, _ = fmt.Fprintln(out)
 
 	selection, err := promptLine(os.Stdout, in, "User number or login: ")
 	if err != nil {
@@ -298,7 +298,7 @@ func runBudgetSetInteractive(cmd *cobra.Command, ctx context.Context, client *gi
 		return err
 	}
 	if found {
-		fmt.Fprintf(out, "\nExisting budget for %s: $%d/month (consumed: $%.2f, id: %s)\n",
+		_, _ = fmt.Fprintf(out, "\nExisting budget for %s: $%d/month (consumed: $%.2f, id: %s)\n",
 			user, existing.BudgetAmount, existing.ConsumedAmount, existing.ID)
 	}
 
@@ -316,15 +316,15 @@ func runBudgetSetInteractive(cmd *cobra.Command, ctx context.Context, client *gi
 	if err != nil {
 		return err
 	}
-	fmt.Fprintf(out, "\n%s budget for %s: $%d/month (id: %s)\n", action, user, budget.BudgetAmount, budget.ID)
+	_, _ = fmt.Fprintf(out, "\n%s budget for %s: $%d/month (id: %s)\n", action, user, budget.BudgetAmount, budget.ID)
 	return nil
 }
 
-func runBudgetDelete(cmd *cobra.Command, args []string) error {
+func runBudgetDelete(cmd *cobra.Command, _ []string) error {
 	if err := requireEnterprise(); err != nil {
 		return err
 	}
-	client, _, err := newGitHubClient()
+	client, err := newGitHubClient()
 	if err != nil {
 		return err
 	}
@@ -335,7 +335,7 @@ func runBudgetDelete(cmd *cobra.Command, args []string) error {
 	if err := client.DeleteBudget(ctx, opts.Enterprise, budgetOpts.BudgetID); err != nil {
 		return err
 	}
-	fmt.Fprintf(cmd.OutOrStdout(), "deleted budget %s\n", budgetOpts.BudgetID)
+	_, _ = fmt.Fprintf(cmd.OutOrStdout(), "deleted budget %s\n", budgetOpts.BudgetID)
 	return nil
 }
 
@@ -370,7 +370,7 @@ func resolveBudgetSetUsers(ctx context.Context, client *githubapi.Client) ([]str
 
 	known, err := discoverUsers(ctx, client, "", "")
 	if err != nil {
-		return users, nil
+		return users, nil //nolint:nilerr // Proceed without validation if seat discovery fails
 	}
 	knownSet := map[string]bool{}
 	for _, login := range known {

@@ -119,7 +119,7 @@ func New(ctx context.Context, store Store, sku, enterprise string, rows []Row) M
 		m.mode = modeApplying
 		m.status = "Loading budgets and current-month usage (NET)…"
 	}
-	m.applyFilter()
+	m = m.applyFilter()
 	return m
 }
 
@@ -138,13 +138,14 @@ func (m Model) applying(status string, cmd tea.Cmd) (Model, tea.Cmd) {
 	return m, tea.Batch(m.spinner.Tick, cmd)
 }
 
-func (m *Model) applyFilter() {
+func (m Model) applyFilter() Model {
 	m.rows = filterRows(m.allRows, m.filter)
 	tableRows := make([]table.Row, 0, len(m.rows))
 	for _, r := range m.rows {
 		tableRows = append(tableRows, table.Row{r.User, budgetCell(r.Amount), consumedCell(r.Consumed), consumedCell(r.Net), r.ProductSKU})
 	}
 	m.table.SetRows(tableRows)
+	return m
 }
 
 func (m Model) selected() (Row, bool) {
@@ -185,8 +186,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.table.SetHeight(max(3, msg.Height-6))
 		return m, nil
 	case rowsLoadedMsg:
-		nm, cmd := m.onRowsLoaded(msg)
-		return nm, cmd
+		nm := m.onRowsLoaded(msg)
+		return nm, nil
 	case appliedMsg:
 		nm, cmd := m.onApplied(msg)
 		return nm, cmd
@@ -202,6 +203,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case tea.KeyMsg:
 		switch m.mode {
+		case modeBrowsing:
+			nm, cmd := m.updateBrowsing(msg)
+			return nm, cmd
 		case modeFiltering:
 			nm, cmd := m.updateFiltering(msg)
 			return nm, cmd
@@ -213,9 +217,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return nm, cmd
 		case modeApplying:
 			return m, nil
-		default:
-			nm, cmd := m.updateBrowsing(msg)
-			return nm, cmd
 		}
 	}
 	return m, nil
@@ -266,6 +267,7 @@ func (m Model) updateBrowsing(msg tea.KeyMsg) (Model, tea.Cmd) {
 }
 
 func (m Model) updateEditing(msg tea.KeyMsg) (Model, tea.Cmd) {
+	//nolint:exhaustive
 	switch msg.Type {
 	case tea.KeyEsc:
 		m.input.Blur()
@@ -283,6 +285,7 @@ func (m Model) updateEditing(msg tea.KeyMsg) (Model, tea.Cmd) {
 		m.status = ""
 		m.mode = modeConfirming
 		return m, nil
+	default:
 	}
 	var cmd tea.Cmd
 	m.input, cmd = m.input.Update(msg)
@@ -304,6 +307,7 @@ func (m Model) updateConfirming(msg tea.KeyMsg) (Model, tea.Cmd) {
 }
 
 func (m Model) updateFiltering(msg tea.KeyMsg) (Model, tea.Cmd) {
+	//nolint:exhaustive
 	switch msg.Type {
 	case tea.KeyEnter:
 		m.input.Blur()
@@ -312,27 +316,28 @@ func (m Model) updateFiltering(msg tea.KeyMsg) (Model, tea.Cmd) {
 	case tea.KeyEsc:
 		m.input.Blur()
 		m.filter = ""
-		m.applyFilter()
+		m = m.applyFilter()
 		m.mode = modeBrowsing
 		return m, nil
+	default:
 	}
 	var cmd tea.Cmd
 	m.input, cmd = m.input.Update(msg)
 	m.filter = m.input.Value()
-	m.applyFilter()
+	m = m.applyFilter()
 	return m, cmd
 }
 
-func (m Model) onRowsLoaded(msg rowsLoadedMsg) (Model, tea.Cmd) {
+func (m Model) onRowsLoaded(msg rowsLoadedMsg) Model {
 	m.mode = modeBrowsing
 	if msg.err != nil {
 		m.status = msg.err.Error()
-		return m, nil
+		return m
 	}
 	m.allRows = msg.rows
-	m.applyFilter()
+	m = m.applyFilter()
 	m.status = ""
-	return m, nil
+	return m
 }
 
 func (m Model) onApplied(msg appliedMsg) (Model, tea.Cmd) {
@@ -351,7 +356,7 @@ func (m Model) onDeleted(msg deletedMsg) (Model, tea.Cmd) {
 		m.status = msg.err.Error()
 		return m, nil
 	}
-	m.status = fmt.Sprintf("deleted budget for %s", msg.user)
+	m.status = "deleted budget for " + msg.user
 	return m, m.reloadCmd(m.sku)
 }
 
@@ -359,6 +364,8 @@ func (m Model) View() string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "%s\n%s\n", titleStyle.Render(fmt.Sprintf("coprem · %s · %s", m.enterprise, m.sku)), m.table.View())
 	switch m.mode {
+	case modeBrowsing:
+		b.WriteString(helpStyle.Render("↑/↓ move · enter edit · d delete · / filter · s toggle sku · q quit"))
 	case modeFiltering:
 		fmt.Fprintf(&b, "filter: %s", m.input.View())
 	case modeEditing:
@@ -371,8 +378,6 @@ func (m Model) View() string {
 		}
 	case modeApplying:
 		fmt.Fprintf(&b, "%s %s", m.spinner.View(), m.status)
-	default:
-		b.WriteString(helpStyle.Render("↑/↓ move · enter edit · d delete · / filter · s toggle sku · q quit"))
 	}
 	if m.status != "" && m.mode != modeApplying {
 		fmt.Fprintf(&b, "\n%s", statusStyle.Render(m.status))

@@ -105,7 +105,7 @@ func fetchNetByUser(ctx context.Context, client *githubapi.Client) (map[string]f
 	return net, nil
 }
 
-func runBudgetManage(cmd *cobra.Command, args []string) error {
+func runBudgetManage(cmd *cobra.Command, _ []string) error {
 	if err := requireEnterprise(); err != nil {
 		return err
 	}
@@ -116,7 +116,7 @@ func runBudgetManage(cmd *cobra.Command, args []string) error {
 		return errors.New("budget manage requires an interactive terminal; use 'budget list' or 'budget set' for scripting")
 	}
 
-	client, _, err := newGitHubClient()
+	client, err := newGitHubClient()
 	if err != nil {
 		return err
 	}

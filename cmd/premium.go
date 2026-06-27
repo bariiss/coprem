@@ -83,7 +83,7 @@ func init() {
 	premiumCmd.Flags().StringVar(&premiumOpts.SortBy, "sort-by", premiumOpts.SortBy, "table sort: net-amount, net-quantity, gross-amount, gross-quantity, key, date")
 }
 
-func runPremium(cmd *cobra.Command, args []string) error {
+func runPremium(cmd *cobra.Command, _ []string) error {
 	if strings.TrimSpace(opts.Enterprise) == "" {
 		return errors.New("missing enterprise: pass --enterprise or set COPREM_ENTERPRISE")
 	}
@@ -190,29 +190,33 @@ type period struct {
 	CustomRange bool
 }
 
+func resolveYearPeriod(loc *time.Location, o premiumOptions) (period, error) {
+	if o.Month < 0 || o.Month > 12 {
+		return period{}, fmt.Errorf("invalid month %d", o.Month)
+	}
+	if o.Day < 0 || o.Day > 31 {
+		return period{}, fmt.Errorf("invalid day %d", o.Day)
+	}
+	if o.Day > 0 && o.Month == 0 {
+		return period{}, errors.New("--day requires --month")
+	}
+	start := time.Date(o.Year, 1, 1, 0, 0, 0, 0, loc)
+	end := time.Date(o.Year, 12, 31, 0, 0, 0, 0, loc)
+	if o.Month > 0 {
+		start = time.Date(o.Year, time.Month(o.Month), 1, 0, 0, 0, 0, loc)
+		end = start.AddDate(0, 1, -1)
+	}
+	if o.Day > 0 {
+		start = time.Date(o.Year, time.Month(o.Month), o.Day, 0, 0, 0, 0, loc)
+		end = start
+	}
+	return period{Start: start, End: end, Year: o.Year, Month: o.Month, Day: o.Day, Label: periodLabel(start, end)}, nil
+}
+
 func resolvePeriod(now time.Time, o premiumOptions) (period, error) {
 	loc := now.Location()
 	if o.Year > 0 {
-		if o.Month < 0 || o.Month > 12 {
-			return period{}, fmt.Errorf("invalid month %d", o.Month)
-		}
-		if o.Day < 0 || o.Day > 31 {
-			return period{}, fmt.Errorf("invalid day %d", o.Day)
-		}
-		if o.Day > 0 && o.Month == 0 {
-			return period{}, errors.New("--day requires --month")
-		}
-		start := time.Date(o.Year, 1, 1, 0, 0, 0, 0, loc)
-		end := time.Date(o.Year, 12, 31, 0, 0, 0, 0, loc)
-		if o.Month > 0 {
-			start = time.Date(o.Year, time.Month(o.Month), 1, 0, 0, 0, 0, loc)
-			end = start.AddDate(0, 1, -1)
-		}
-		if o.Day > 0 {
-			start = time.Date(o.Year, time.Month(o.Month), o.Day, 0, 0, 0, 0, loc)
-			end = start
-		}
-		return period{Start: start, End: end, Year: o.Year, Month: o.Month, Day: o.Day, Label: periodLabel(start, end)}, nil
+		return resolveYearPeriod(loc, o)
 	}
 
 	if o.From != "" || o.To != "" {
@@ -372,7 +376,7 @@ func resolveUsers(ctx context.Context, client *githubapi.Client, o premiumOption
 	if len(users) == 0 {
 		discovered, err := client.CopilotSeatLogins(ctx, opts.Enterprise)
 		if err != nil {
-			return nil, fmt.Errorf("discover Copilot seats for --group-by user: %w\n%s", err, githubapi.EnterpriseAuthHint(opts.GHHostname, resolveGHUser()))
+			return nil, fmt.Errorf("discover Copilot seats for --group-by user: %w\n%s", err, githubapi.EnterpriseAuthHint(opts.GHHostname, resolveGHUser())) //nolint:contextcheck // CLI error path doesn't need context propagation for authentication hint
 		}
 		users = append(users, discovered...)
 	}

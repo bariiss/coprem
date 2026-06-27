@@ -1,6 +1,7 @@
 package github
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os/exec"
@@ -71,7 +72,7 @@ func parseGHAuthAccounts(hostname string) ([]ghAccount, error) {
 	if hostname != "" {
 		args = append(args, "--hostname", hostname)
 	}
-	out, err := exec.Command("gh", args...).CombinedOutput()
+	out, err := exec.CommandContext(context.Background(), "gh", args...).CombinedOutput()
 	if err != nil {
 		if errors.Is(err, exec.ErrNotFound) {
 			return nil, nil

@@ -36,7 +36,7 @@ func requireEnterprise() error {
 	return nil
 }
 
-func newGitHubClient() (*githubapi.Client, string, error) {
+func newGitHubClient() (*githubapi.Client, error) {
 	ghUser := resolveGHUser()
 	token, source, err := githubapi.ResolveToken(githubapi.TokenOptions{
 		PreferredEnv: opts.TokenEnv,
@@ -46,10 +46,10 @@ func newGitHubClient() (*githubapi.Client, string, error) {
 		PreferGH:     githubapi.ShouldPreferGHToken(opts.GHHostname, ghUser),
 	})
 	if err != nil {
-		return nil, "", err
+		return nil, err
 	}
 	if token == "" {
-		return nil, "", errors.New("missing GitHub token: set COPREM_TOKEN, GITHUB_TOKEN, GH_TOKEN, COPILOT_PREMIUM_TOKEN, pass --token-env, or authenticate gh")
+		return nil, errors.New("missing GitHub token: set COPREM_TOKEN, GITHUB_TOKEN, GH_TOKEN, COPILOT_PREMIUM_TOKEN, pass --token-env, or authenticate gh")
 	}
 	client := githubapi.NewClient(githubapi.ClientOptions{
 		HTTPClient:  &http.Client{Timeout: opts.Timeout},
@@ -59,7 +59,7 @@ func newGitHubClient() (*githubapi.Client, string, error) {
 		UserAgent:   "coprem",
 		TokenSource: source,
 	})
-	return client, source, nil
+	return client, nil
 }
 
 func discoverUsers(ctx context.Context, client *githubapi.Client, usersCSV, usersFile string) ([]string, error) {
@@ -75,7 +75,7 @@ func discoverUsers(ctx context.Context, client *githubapi.Client, usersCSV, user
 	if len(users) == 0 {
 		discovered, err := client.CopilotSeatLogins(ctx, opts.Enterprise)
 		if err != nil {
-			return nil, discoverUsersError(err)
+			return nil, discoverUsersError(err) //nolint:contextcheck // CLI error path doesn't need context propagation for authentication hint
 		}
 		users = append(users, discovered...)
 	}
@@ -119,19 +119,19 @@ func parsePositiveInt(value string) (int, error) {
 		return 0, err
 	}
 	if n <= 0 {
-		return 0, fmt.Errorf("not positive")
+		return 0, errors.New("not positive")
 	}
 	return n, nil
 }
 
 func printNumberedUsers(out *os.File, users []string) {
 	for i, user := range users {
-		fmt.Fprintf(out, "  %3d  %s\n", i+1, user)
+		_, _ = fmt.Fprintf(out, "  %3d  %s\n", i+1, user)
 	}
 }
 
 func readUsersFile(path string) ([]string, error) {
-	content, err := os.ReadFile(path)
+	content, err := os.ReadFile(path) //nolint:gosec // CLI reads files provided by user
 	if err != nil {
 		return nil, err
 	}

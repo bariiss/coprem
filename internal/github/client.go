@@ -213,7 +213,7 @@ func (c *Client) doJSON(ctx context.Context, method, path string, query url.Valu
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -236,7 +236,7 @@ func (c *Client) getWithNext(ctx context.Context, path string, query url.Values,
 	if encoded := query.Encode(); encoded != "" {
 		endpoint += "?" + encoded
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, http.NoBody)
 	if err != nil {
 		return "", err
 	}
@@ -251,7 +251,7 @@ func (c *Client) getWithNext(ctx context.Context, path string, query url.Values,
 	if err != nil {
 		return "", err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -338,7 +338,7 @@ func tokenFromGH(hostname, user string) (string, error) {
 	if user != "" {
 		args = append(args, "--user", user)
 	}
-	cmd := exec.Command("gh", args...)
+	cmd := exec.CommandContext(context.Background(), "gh", args...)
 	out, err := cmd.Output()
 	if err != nil {
 		return "", fmt.Errorf("gh auth token failed: %w", err)
@@ -348,7 +348,7 @@ func tokenFromGH(hostname, user string) (string, error) {
 
 func addInt(values url.Values, name string, value int) {
 	if value > 0 {
-		values.Set(name, fmt.Sprintf("%d", value))
+		values.Set(name, strconv.Itoa(value))
 	}
 }
 

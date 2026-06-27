@@ -257,7 +257,8 @@ func ResolveColor(w io.Writer, mode string) (bool, error) {
 
 func WriteTable(w io.Writer, report Report, options TableOptions) error {
 	columns := tableColumns(report)
-	rows := [][]string{tableHeader(columns)}
+	rows := make([][]string, 0, 1+len(report.Rows))
+	rows = append(rows, tableHeader(columns))
 	for _, row := range report.Rows {
 		rows = append(rows, tableRow(row, columns))
 	}
@@ -490,13 +491,14 @@ func writeTableRow(w io.Writer, row []string, widths []int, columns []tableColum
 	values := make([]string, 0, len(row))
 	for i, value := range row {
 		padded := padRight(value, widths[i])
-		if header {
+		switch {
+		case header:
 			padded = c.bold(c.cyan(padded))
-		} else if columns[i].key == "key" {
+		case columns[i].key == "key":
 			padded = c.cyan(padded)
-		} else if columns[i].key == "netAmount" {
+		case columns[i].key == "netAmount":
 			padded = c.green(padded)
-		} else if columns[i].key == "budgetConsumed" && c.enabled {
+		case columns[i].key == "budgetConsumed" && c.enabled:
 			padded = c.heatmap(value, row, columns, i)
 		}
 		values = append(values, " "+padded+" ")
@@ -546,7 +548,7 @@ func (c colors) heatmap(value string, row []string, columns []tableColumn, colId
 	}
 	limit := 0.0
 	if budgetVal != "" {
-		fmt.Sscanf(budgetVal, "$%f", &limit)
+		_, _ = fmt.Sscanf(budgetVal, "$%f", &limit)
 	}
 	ratio := 0.0
 	if limit > 0 {

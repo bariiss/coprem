@@ -3,6 +3,7 @@
     "**/*.md"
   ],
   "ignores": [
-    "LICENSE"
+    "LICENSE",
+    ".github/**/*.md"
   ]
 }

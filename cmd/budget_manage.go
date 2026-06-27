@@ -3,7 +3,6 @@ package cmd
 import (
 	"context"
 	"errors"
-	"fmt"
 	"os"
 	"time"
 
@@ -24,18 +23,28 @@ var budgetManageCmd = &cobra.Command{
 type budgetStore struct {
 	client    *githubapi.Client
 	netByUser map[string]float64 // additional usage billed per user this period
+	netLoaded bool               // NET is fetched once, lazily, on first Reload
 }
 
-func (s budgetStore) Upsert(ctx context.Context, user string, amount int, sku string) (string, error) {
+func (s *budgetStore) Upsert(ctx context.Context, user string, amount int, sku string) (string, error) {
 	_, action, err := upsertUserBudget(ctx, s.client, user, amount, sku)
 	return action, err
 }
 
-func (s budgetStore) Delete(ctx context.Context, budgetID string) error {
+func (s *budgetStore) Delete(ctx context.Context, budgetID string) error {
 	return s.client.DeleteBudget(ctx, opts.Enterprise, budgetID)
 }
 
-func (s budgetStore) Reload(ctx context.Context, sku string) ([]budgettui.Row, error) {
+func (s *budgetStore) Reload(ctx context.Context, sku string) ([]budgettui.Row, error) {
+	// NET (premium usage) is the slow part — one call per user. Fetch it once
+	// on the first load and reuse it for SKU toggles and post-mutation reloads.
+	// NET is best-effort: on failure the column simply shows "-".
+	if !s.netLoaded {
+		if net, err := fetchNetByUser(ctx, s.client); err == nil {
+			s.netByUser = net
+		}
+		s.netLoaded = true
+	}
 	users, err := discoverUsers(ctx, s.client, "", "")
 	if err != nil {
 		return nil, err
@@ -51,7 +60,7 @@ func (s budgetStore) Reload(ctx context.Context, sku string) ([]budgettui.Row, e
 	return s.toTUIRows(rows), nil
 }
 
-func (s budgetStore) toTUIRows(rows []userBudgetRow) []budgettui.Row {
+func (s *budgetStore) toTUIRows(rows []userBudgetRow) []budgettui.Row {
 	out := make([]budgettui.Row, 0, len(rows))
 	for _, r := range rows {
 		row := budgettui.Row{
@@ -116,22 +125,11 @@ func runBudgetManage(cmd *cobra.Command, args []string) error {
 		ctx = context.Background()
 	}
 
-	store := budgetStore{client: client}
-	netByUser, err := fetchNetByUser(ctx, client)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "warning: could not load NET usage; NET column will be empty: %v\n", err)
-	}
-	store.netByUser = netByUser
-
-	rows, err := store.Reload(ctx, budgetOpts.ProductSKU)
-	if err != nil {
-		return err
-	}
-	if len(rows) == 0 {
-		return errors.New("no users found")
-	}
-
-	model := budgettui.New(ctx, store, budgetOpts.ProductSKU, opts.Enterprise, rows)
+	// Pass nil rows so the TUI opens immediately and loads data (budgets +
+	// per-user NET usage) in Init, showing a spinner with a status line during
+	// the few seconds the NET fetch takes.
+	store := &budgetStore{client: client}
+	model := budgettui.New(ctx, store, budgetOpts.ProductSKU, opts.Enterprise, nil)
 	program := tea.NewProgram(model, tea.WithAltScreen())
 	_, err = program.Run()
 	return err

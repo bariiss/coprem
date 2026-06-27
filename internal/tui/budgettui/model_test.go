@@ -5,8 +5,34 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
 )
+
+// exec runs a command and returns its message. Apply/reload commands are
+// wrapped in a tea.Batch alongside the spinner tick, so this unwraps the batch
+// and returns the first non-spinner-tick message.
+func exec(cmd tea.Cmd) tea.Msg {
+	if cmd == nil {
+		return nil
+	}
+	msg := cmd()
+	batch, ok := msg.(tea.BatchMsg)
+	if !ok {
+		return msg
+	}
+	for _, c := range batch {
+		if c == nil {
+			continue
+		}
+		sub := c()
+		if _, isTick := sub.(spinner.TickMsg); isTick {
+			continue
+		}
+		return sub
+	}
+	return nil
+}
 
 type upsertCall struct {
 	user   string
@@ -102,7 +128,7 @@ func TestSKUToggleTriggersReload(t *testing.T) {
 	if cmd == nil {
 		t.Fatal("expected reload command")
 	}
-	msg := cmd()
+	msg := exec(cmd)
 	loaded, ok := msg.(rowsLoadedMsg)
 	if !ok {
 		t.Fatalf("msg type = %T, want rowsLoadedMsg", msg)
@@ -137,7 +163,7 @@ func TestEditConfirmApplyUpsert(t *testing.T) {
 	if cmd == nil {
 		t.Fatal("expected upsert command")
 	}
-	msg := cmd()
+	msg := exec(cmd)
 	if len(fs.upsertCalls) != 1 || fs.upsertCalls[0] != (upsertCall{"alice", 50, SKUAICredits}) {
 		t.Fatalf("upsert calls = %v, want one {alice 50 ai_credits}", fs.upsertCalls)
 	}
@@ -193,7 +219,7 @@ func TestDeleteFlow(t *testing.T) {
 	if cmd == nil {
 		t.Fatal("expected delete command")
 	}
-	msg := cmd()
+	msg := exec(cmd)
 	if len(fs.deleteCalls) != 1 || fs.deleteCalls[0] != "bgt_1" {
 		t.Fatalf("delete calls = %v, want [bgt_1]", fs.deleteCalls)
 	}
@@ -222,7 +248,7 @@ func TestUpsertErrorSurfaces(t *testing.T) {
 	m, _ = step(m, runes("50"))
 	m, _ = step(m, enter())
 	_, cmd := step(m, runes("y"))
-	applied := cmd().(appliedMsg)
+	applied := exec(cmd).(appliedMsg)
 	m, reload := step(m, applied)
 	if m.mode != modeBrowsing {
 		t.Fatalf("mode = %v, want browsing after error", m.mode)

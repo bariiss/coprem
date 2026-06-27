@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/table"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
@@ -63,8 +64,9 @@ type Model struct {
 	rows    []Row
 	filter  string
 
-	table table.Model
-	input textinput.Model
+	table   table.Model
+	input   textinput.Model
+	spinner spinner.Model
 
 	mode    mode
 	confirm confirmKind
@@ -96,6 +98,9 @@ func New(ctx context.Context, store Store, sku, enterprise string, rows []Row) M
 	ti := textinput.New()
 	ti.Prompt = ""
 
+	sp := spinner.New()
+	sp.Spinner = spinner.Dot
+
 	m := Model{
 		ctx:        ctx,
 		store:      store,
@@ -105,13 +110,33 @@ func New(ctx context.Context, store Store, sku, enterprise string, rows []Row) M
 		rows:       rows,
 		table:      t,
 		input:      ti,
+		spinner:    sp,
 		mode:       modeBrowsing,
+	}
+	// A nil rows slice means "load on start": open immediately in a loading
+	// state and fetch data from the store in Init.
+	if rows == nil {
+		m.mode = modeApplying
+		m.status = "Loading budgets and current-month usage (NET)…"
 	}
 	m.applyFilter()
 	return m
 }
 
-func (m Model) Init() tea.Cmd { return nil }
+func (m Model) Init() tea.Cmd {
+	if m.mode == modeApplying {
+		return tea.Batch(m.spinner.Tick, m.reloadCmd(m.sku))
+	}
+	return nil
+}
+
+// applying enters the loading state with a one-line status and starts the
+// spinner alongside the given async command.
+func (m Model) applying(status string, cmd tea.Cmd) (Model, tea.Cmd) {
+	m.mode = modeApplying
+	m.status = status
+	return m, tea.Batch(m.spinner.Tick, cmd)
+}
 
 func (m *Model) applyFilter() {
 	m.rows = filterRows(m.allRows, m.filter)
@@ -168,6 +193,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case deletedMsg:
 		nm, cmd := m.onDeleted(msg)
 		return nm, cmd
+	case spinner.TickMsg:
+		if m.mode == modeApplying {
+			var cmd tea.Cmd
+			m.spinner, cmd = m.spinner.Update(msg)
+			return m, cmd
+		}
+		return m, nil
 	case tea.KeyMsg:
 		switch m.mode {
 		case modeFiltering:
@@ -200,9 +232,7 @@ func (m Model) updateBrowsing(msg tea.KeyMsg) (Model, tea.Cmd) {
 		return m, nil
 	case "s":
 		m.sku = toggleSKU(m.sku)
-		m.status = "loading…"
-		m.mode = modeApplying
-		return m, m.reloadCmd(m.sku)
+		return m.applying("Loading "+m.sku+" budgets…", m.reloadCmd(m.sku))
 	case "enter":
 		r, ok := m.selected()
 		if !ok {
@@ -262,11 +292,10 @@ func (m Model) updateEditing(msg tea.KeyMsg) (Model, tea.Cmd) {
 func (m Model) updateConfirming(msg tea.KeyMsg) (Model, tea.Cmd) {
 	if msg.Type == tea.KeyRunes && strings.EqualFold(string(msg.Runes), "y") {
 		m.input.Blur()
-		m.mode = modeApplying
 		if m.confirm == confirmDelete {
-			return m, m.deleteCmd(m.pendingUser, m.pendingID)
+			return m.applying("Deleting budget for "+m.pendingUser+"…", m.deleteCmd(m.pendingUser, m.pendingID))
 		}
-		return m, m.upsertCmd(m.pendingUser, m.pendingAmount, m.sku)
+		return m.applying("Saving budget for "+m.pendingUser+"…", m.upsertCmd(m.pendingUser, m.pendingAmount, m.sku))
 	}
 	m.input.Blur()
 	m.status = "cancelled"
@@ -341,11 +370,11 @@ func (m Model) View() string {
 			fmt.Fprintf(&b, "Set $%d/month for %s with hard stop? [y/N]", m.pendingAmount, m.pendingUser)
 		}
 	case modeApplying:
-		b.WriteString("working…")
+		fmt.Fprintf(&b, "%s %s", m.spinner.View(), m.status)
 	default:
 		b.WriteString(helpStyle.Render("↑/↓ move · enter edit · d delete · / filter · s toggle sku · q quit"))
 	}
-	if m.status != "" {
+	if m.status != "" && m.mode != modeApplying {
 		fmt.Fprintf(&b, "\n%s", statusStyle.Render(m.status))
 	}
 	return b.String()

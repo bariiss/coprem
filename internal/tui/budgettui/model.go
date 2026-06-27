@@ -81,7 +81,7 @@ func New(ctx context.Context, store Store, sku, enterprise string, rows []Row) M
 	t := table.New(
 		table.WithColumns([]table.Column{
 			{Title: "USER", Width: 28},
-			{Title: "AMOUNT", Width: 10},
+			{Title: "BUDGET", Width: 10},
 			{Title: "CONSUMED", Width: 12},
 			{Title: "NET", Width: 10},
 			{Title: "SKU", Width: 18},

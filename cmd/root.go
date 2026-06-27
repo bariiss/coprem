@@ -50,6 +50,27 @@ from 'gh auth token' when the GitHub CLI is already authenticated.
 	SilenceUsage: true,
 }
 
+var (
+	version = "dev"
+	commit  = "none"
+	date    = "unknown"
+)
+
+func SetVersionInfo(v, c, d string) {
+	version = v
+	commit = c
+	date = d
+	rootCmd.Version = fmt.Sprintf("%s (commit: %s, date: %s)", version, commit, date)
+}
+
+var versionCmd = &cobra.Command{
+	Use:   "version",
+	Short: "Print the version number of coprem",
+	Run: func(_ *cobra.Command, _ []string) {
+		fmt.Printf("coprem version %s (commit: %s, date: %s)\n", version, commit, date)
+	},
+}
+
 func Execute() {
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
@@ -58,6 +79,7 @@ func Execute() {
 }
 
 func init() {
+	rootCmd.AddCommand(versionCmd)
 	rootCmd.PersistentFlags().StringVarP(&opts.Enterprise, "enterprise", "e", os.Getenv("COPREM_ENTERPRISE"), "GitHub enterprise slug; defaults to COPREM_ENTERPRISE")
 	rootCmd.PersistentFlags().StringVar(&opts.APIBaseURL, "api-base-url", opts.APIBaseURL, "GitHub API base URL")
 	rootCmd.PersistentFlags().StringVar(&opts.APIVersion, "api-version", opts.APIVersion, "GitHub REST API version")
